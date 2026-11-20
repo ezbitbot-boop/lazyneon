@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { liveRpcSkipReason, pythonVersionStatus } from './doctor-runtime.mjs';
 import { RULES_FILE_WARN_BYTES, RULES_TOTAL_WARN_BYTES } from "./rules-budget.mjs";
+import { staticPrefix, runtimeContext } from './session_start.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
@@ -303,12 +304,18 @@ function rulesBudget() {
 	let wsBytes = 0;
 	if (cwd !== resolve(root)) {
 		for (const wf of [join(cwd, "AGENTS.md"), join(cwd, "GEMINI.md")]) {
-			if (existsSync(wf)) wsBytes += Buffer.byteLength(readFileSync(wf, "utf8"), "utf8");
+			if (existsSync(wf)) {
+				const bytes = Buffer.byteLength(readFileSync(wf, "utf8"), "utf8");
+				wsBytes += bytes;
+				if (bytes > RULES_FILE_WARN_BYTES) big.push(`${wf} ${bytes}B`);
+			}
 		}
 	}
-	const wsNote = wsBytes > 0 ? ` + 워크스페이스 ${wsBytes}B` : "";
-	const detail = `${sizes.length}개 규칙 파일 합계 ${total}B (파일당 ≤${RULES_FILE_WARN_BYTES}B, 합계 ≤${RULES_TOTAL_WARN_BYTES}B)${wsNote}`;
-	if (big.length || total > RULES_TOTAL_WARN_BYTES) {
+	// Render locally without invoking SessionStart's update or model-state writes.
+	const sessionBytes = Buffer.byteLength(staticPrefix() + runtimeContext({cwd}), 'utf8');
+	const combined = total + wsBytes + sessionBytes;
+	const detail = `${sizes.length}개 규칙 파일 ${total}B + 워크스페이스 ${wsBytes}B + SessionStart ${sessionBytes}B = 합계 ${combined}B (파일당 ≤${RULES_FILE_WARN_BYTES}B, 합계 ≤${RULES_TOTAL_WARN_BYTES}B; 현재 cwd·환경 기준, 업데이트 알림·호스트 추가 규칙 제외)`;
+	if (big.length || combined > RULES_TOTAL_WARN_BYTES) {
 		add("rules.budget", "warn", `${detail} — 초과: ${big.join(", ") || "합계"}. 예산을 넘은 규칙 파일은 통째로 빠진다(#1254)`);
 		return;
 	}

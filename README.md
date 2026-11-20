@@ -1,4 +1,4 @@
-# LazyNeon (`v0.4.0`)
+# LazyNeon (`v0.4.1`)
 
 Gemini 4 Neon용 독립 Google Antigravity 플러그인이다. `/ulw` 실행, 모델 라우팅과 범용 가드를 코어에서 소유한다. MIT 원저작자 표기는 [NOTICE](NOTICE)에 보존한다.
 
@@ -10,9 +10,9 @@ Gemini 4 Neon용 독립 Google Antigravity 플러그인이다. `/ulw` 실행, �
 LAZYNEON_OFFLINE=1 node scripts/doctor.mjs
 ```
 
-상태는 `.lazyneon/`, 환경변수는 `LAZYNEON_*`, 피드백 기본 경로는 `~/.lazyneon/feedback`이다. 자동 업데이트는 기본 꺼짐이며 `LAZYNEON_AUTO_UPDATE=1`로 켠다. `LAZYNEON_OFFLINE=1` 또는 `LAZYNEON_NO_AUTO_UPDATE=1`이 켜기 설정보다 우선한다. `LAZYNEON_OFFLINE=1`은 doctor의 live RPC 조회를 막는다. doctor는 `--live`를 줄 때만 실행 중인 Antigravity language server에 접속해 플러그인 로딩 상태를 읽는다(기본은 접속하지 않음).
+상태는 `.lazyneon/`, 환경변수는 `LAZYNEON_*`, 피드백 기본 경로는 `~/.lazyneon/feedback`이다. SessionStart는 업데이트를 안내만 하며 설치 코드를 변경하지 않는다. 갱신은 `node bin/lazyneon update`로 명시적으로 실행한다. `LAZYNEON_OFFLINE=1` 또는 `LAZYNEON_NO_AUTO_UPDATE=1`이 켜기 설정보다 우선한다. `LAZYNEON_OFFLINE=1`은 doctor의 live RPC 조회를 막는다. doctor는 `--live`를 줄 때만 실행 중인 Antigravity language server에 접속해 플러그인 로딩 상태를 읽는다(기본은 접속하지 않음).
 
-선택적 동반 플러그인 `lazyneon-workspace`는 도메인 스킬을 별도로 제공한다. SessionStart와 doctor는 형제 폴더의 plugin.json 이름·버전으로 선택적 companion(>=0.1.0)을 읽기 전용 검사한다. 설치되어 있으면 호환성을 알리며, 없으면 doctor에만 forensic/legal skills not installed를 표시한다. 실패해도 세션을 차단하지 않는다. 코어만 `.lazyneon/`과 write_chunk, markdown_structure, json_schema, stop_claim, lookup, post_tool_feedback 가드를 소유한다. 동반 플러그인은 `pins.md`, `ulw-scope.md`를 읽기만 하며 이 파일을 쓰거나 범용 가드를 등록하지 않는다.
+선택적 동반 플러그인 `lazyneon-workspace`는 도메인 스킬을 별도로 제공한다. SessionStart와 doctor는 형제 폴더의 plugin.json 이름·버전으로 선택적 companion(>=0.1.0)을 읽기 전용 검사한다. 설치되어 있으면 호환성을 알리며, 없으면 doctor에만 forensic/legal skills not installed를 표시한다. 실패해도 세션을 차단하지 않는다. 코어만 `.lazyneon/`과 write_chunk, markdown_structure, json_schema, stop_claim, lookup, post_tool_feedback 가드를 소유한다. 코어 SessionStart가 `pins.md`, `ulw-scope.md`를 읽어 런타임 문맥에 주입한다. 동반 플러그인의 별도 파일 읽기 API를 약속하지 않는다.
 
 라우팅의 단일 기준은 `skills/ulw/references/model-routing.json`이다. Neon이 판단하고 일반 작업의 Hydrogen 워커가 수집·구현한다. PII·민감정보·보안 감사·포렌식 판정·증거 자료가 있는 작업은 실행 단계와 병렬 워커까지 Neon으로 제한한다. 호스트가 보고한 Neon 세션이 필요한 티어 이상이면 게이트는 `in_session`, `pending`으로 배정한다. 분류는 검증 PASS가 아니며 실행 근거가 필요하다. Neon high 기준선이며 근거 있는 해당 게이트 승격 시에만 `xhigh 권장, high로 진행`을 안내한다. 미보고 수준은 `[미확인]` 안내 후 진행한다. 비-Neon 세션만 Neon 위임 불가 시 거부한다. SessionStart 보고 모델은 `.lazyneon/session-model.json`에 저장되어 분류 CLI와 공유된다. 호스트 매핑과 모델 성능은 [미측정]이다.
 
@@ -99,7 +99,7 @@ node bin/lazyneon update
 
 로컬 변경이나 미추적 파일이 있으면 거부한다. fast-forward만 허용하므로 로컬 커밋과 원격 이력이 갈라졌을 때도 거부한다. stash, rebase, 강제 덮어쓰기는 하지 않는다. 알림에 나오는 명령에는 설치 경로가 포함되어 있다.
 
-`LAZYNEON_AUTO_UPDATE=1`을 설정하면 기존처럼 깨끗한 main 브랜치를 자동 fast-forward한다. `LAZYNEON_NO_UPDATE_CHECK=1`은 세션의 확인과 자동 갱신을 모두 끈다. 기존 `LAZYNEON_NO_AUTO_UPDATE=1`도 유지된다. `LAZYNEON_OFFLINE=1`은 항상 우선하며 세션 확인과 수동 update도 막는다. 실패한 확인도 24시간 동안 재시도하지 않는다.
+SessionStart는 `LAZYNEON_AUTO_UPDATE=1`이 있어도 안내만 한다. 이 변수는 기존 `autoUpdate()` 직접 호출의 호환 옵션이며 세션 훅에서는 무시한다. `LAZYNEON_NO_UPDATE_CHECK=1`은 세션의 확인과 자동 갱신을 모두 끈다. 기존 `LAZYNEON_NO_AUTO_UPDATE=1`도 유지된다. `LAZYNEON_OFFLINE=1`은 항상 우선하며 세션 확인과 수동 update도 막는다. 실패한 확인도 24시간 동안 재시도하지 않는다.
 
 출처를 기록하는 보고서에는 `plugin: {version, commit, dirty}`가 들어간다. `scripts/provenance.mjs`의 `pluginProvenance()`로 같은 정보를 얻을 수 있다. commit은 플러그인 저장소의 전체 SHA이며 작업 대상 저장소의 SHA가 아니다. Git 정보가 없는 배포본에서는 commit과 dirty가 null이다.
 
@@ -169,7 +169,7 @@ python3 tools/smoke_test.py
 | `LAZYNEON_TEST_SKILL_ROOT` | doctor 테스트용 스킬 루트 |
 | `LAZYNEON_OFFLINE` | 1이면 live RPC 및 자동 갱신 금지 |
 | `LAZYNEON_NO_UPDATE_CHECK` | 1이면 세션 업데이트 확인과 자동 갱신 금지 |
-| `LAZYNEON_AUTO_UPDATE` | 기본 꺼짐, 1이면 자동 갱신 허용 |
+| `LAZYNEON_AUTO_UPDATE` | 기존 `autoUpdate()` 직접 호출 전용; SessionStart에서는 무시 |
 | `LAZYNEON_NO_AUTO_UPDATE` | 1이면 자동 갱신 금지, 켜기보다 우선 |
 
 셸 인터프리터의 `-c`/`-e`/`--eval`/`-Command` 인라인 프로그램은 쓰기 여부를 정적으로 증명할 수 없어 전체 명령을 쓰기 크기에 포함한다. 작은 읽기 원라이너는 통과한다.

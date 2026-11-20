@@ -1,3 +1,10 @@
+# 0.4.1 — 2026-11-20
+
+- SessionStart remains notify-only even with the legacy auto-update opt-in; installed code changes require an explicit update command.
+- Doctor budgets include rendered SessionStart context and workspace rules, enforce the combined limit, and state measurement boundaries.
+- README attributes pins/scope loading to the implemented core SessionStart rather than promising a companion API.
+- Re-verified the stale core/workspace review against current core; state naming and independent guards were already corrected. Workspace-only findings remain outside this repository.
+
 # 0.4.0 — 2026-11-20
 
 - Optional Workspace companion manifest/version compatibility check in SessionStart and doctor; standalone core remains supported.

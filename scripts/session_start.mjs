@@ -152,7 +152,8 @@ export function runtimeContext(payload = {}) {
 const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	const payload = parsePayload(await readStdin(STDIN_WAIT_MS));
-	const updateNotice = autoUpdate(root);
+	// Session hooks may announce updates, but must never replace running code.
+	const updateNotice = autoUpdate(root, {...process.env, LAZYNEON_AUTO_UPDATE: '0'});
 	try { rememberSessionModel(payload); } catch (error) { process.stderr.write(`[미확인] 세션 모델 저장 실패: ${error.message}\n`); }
 	const context = staticPrefix() + runtimeContext(payload) + (updateNotice ? `\n${updateNotice}` : '');
 	// Antigravity drops the whole SessionStart output when it carries keys beyond injectSteps

@@ -41,8 +41,8 @@ test('R3 M4 smoke validates the repository skill inventory', () => {
  assert.equal(r.status,0,r.stdout+r.stderr);
  assert.doesNotMatch(read('tools/smoke_test.py'),/len\(skill_dirs\)\s*==\s*\d+/);
 });
-test('R3 L1 README states opt-in update and disabling precedence', () => {
- const s=read('README.md'); assert.match(s,/기본 꺼짐/); assert.match(s,/LAZYNEON_AUTO_UPDATE=1/); assert.match(s,/LAZYNEON_OFFLINE=1.*LAZYNEON_NO_AUTO_UPDATE=1.*우선/);
+test('R3 L1 README states notify-only SessionStart and disabling precedence', () => {
+ const s=read('README.md'); assert.match(s,/SessionStart는 `LAZYNEON_AUTO_UPDATE=1`이 있어도 안내만 한다/); assert.match(s,/LAZYNEON_AUTO_UPDATE=1/); assert.match(s,/LAZYNEON_OFFLINE=1.*LAZYNEON_NO_AUTO_UPDATE=1.*우선/);
 });
 test('R3 L2 current titles and receipt targets retain source records', () => {
  for(const f of ['docs/keyword-routing.md','docs/material-first-design.md','docs/SKILL-SOURCES.md']) assert.doesNotMatch(read(f).split('\n')[0],/LazyArgon/i);
