@@ -137,3 +137,11 @@ English-first retrieval, varied operators (`site:`, `filetype:`, `intitle:`, `"e
 The full failure-mode table lives in [references/failure-modes.md](references/failure-modes.md). The ones that most often end a run: standing up the wave before the Phase 0 brief exists; stopping after wave 1 (convergence rules only); a supported claim with no skeptic pass; a gate recorded `pass` that never executed; and a final answer while any lane result is still unaccounted for.
 
 `roleModel` is resolved from `skills/ulw/references/model-routing.json`: collection/aggregation uses Hydrogen `flash`; skeptic, judgment, security and final approval use Neon `pro` at the required thinking tier. This also applies to browser lanes (including `browser`); inherit is allowed only after verifying the required family and tier. Host mapping is [미확인].
+
+## Ordinary public access methods
+
+Before external search, read [search-craft.md](references/search-craft.md) and the
+[Phase 0 route index](references/access-routes.md). Client/case material stays local;
+only local search is allowed. Use `scripts/access-method.mjs` for ordinary public
+access with explicit per-hop egress consent. No TLS impersonation or CAPTCHA solving.
+Blocked access stops with evidence and asks for a user hint or local copy.

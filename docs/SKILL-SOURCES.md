@@ -48,3 +48,14 @@ Generated from `docs/skill-source-receipts.json` (2026-11-15 rewrite). `skill_or
 
 - `experimental/` (dag_ulw, lazy_memory, lazy_rag, autoresearch_loop, lazy_tui, model_calibrate, lazy_slop_cleaner): quarantined since 2026-10-30 with no use in real Antigravity sessions; deleted with their tests. Their inspiration rows (oh-my-claudecode, oh-my-codex, autoresearch, kimi-cli, ZCode, mem0, letta, AutoRAG, continue) went with them.
 - `blader/humanizer`: was listed as the source of humanize-korean; the real original is `epoko77-ai/im-not-ai`.
+
+## Ordinary access-method addition (0.4.3)
+
+`fivetaku/insane-search` at `82211894339e45e7e848c54d47ef4743460bd5df` (MIT)
+contributes selected method, route and signal adaptations in
+`skills/ulw-research/scripts/access-method.mjs`, `access-routes.mjs`,
+`access-validation.mjs` and the access route/search-craft references.
+Exact per-file mapping and exclusions are recorded in
+`skills/ulw-research/ATTRIBUTION.md` section 4 and `skill-source-receipts.json`.
+No Python engine, TLS impersonation, WAF header grids or CAPTCHA solving is ported.
+External endpoint availability has not been live-verified.

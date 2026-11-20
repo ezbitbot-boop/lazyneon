@@ -74,3 +74,33 @@ long-form anti-pattern list in `references/latex-report.md` are inspired by
 - **What is adapted:** IDEAS only — no code, templates, or text are copied or
   redistributed. The upstream compile script and templates are not vendored; the
   reference describes the equivalent loop in plain shell + LaTeX.
+
+## 4. insane-search — ordinary access-method port (0.4.3)
+
+Source: https://github.com/fivetaku/insane-search, MIT, commit
+`82211894339e45e7e848c54d47ef4743460bd5df` (`8221189`). Copyright (c) 2026
+fivetaku; complete license in `LICENSES/insane-search-MIT.txt` at repository root.
+This addition qualifies the earlier ideas-only description: selected signal strings
+and route definitions are adapted into new Node code; no Python engine is bundled.
+
+Source paths below are relative to upstream `skills/insane-search/`:
+
+| Source | Adapted destination and scope |
+|---|---|
+| `engine/phase0.py`, `references/json-api.md`, `public-api.md`, `twitter.md`, `naver.md`, `rss.md`, `media.md` | `references/access-routes.json`, `access-routes.md`, `scripts/access-routes.mjs`: official/public route index, exact host matching, Reddit RSS/JSON, X oEmbed and documented mobile alternate; media/uncertain APIs remain guidance |
+| `engine/fetch_chain.py`, `references/fallback.md`, `jina.md`, `playwright.md`, `cache-archive.md`, `metadata.md` | `scripts/access-method.mjs`: ordinary request, validate, official alternate, consent-gated reader, optional ordinary browser, stop and ask for hint; archives are explicit discovery routes, metadata-only pages are not proof of full content |
+| `engine/waf_detector.py`, `engine/waf_profiles.yaml`, `engine/validators.py` | `scripts/access-validation.mjs`: status semantics, structural challenge markers, WAF header/cookie evidence, login wall, soft-404, small JSON/empty response distinctions; no vendor ranking or bypass recommendations |
+| `engine/url_transforms.py` | `scripts/access-routes.mjs`: deduplicable official alternate concept; no speculative mobile-host grid; caller-confirmed AMP/print URLs are runtime hints only |
+| `engine/observations_log.py`, `engine/learning.py` | `scripts/access-method.mjs`: local metadata observations only; learning reviewed but automatic host-route learning intentionally not ported |
+| `engine/bias_check.py`, `SKILL.md` | `references/search-craft.md`: No-Site-Name Rule with official route-index exception; reporting diversity and counterevidence checks |
+| `engine/content_safety.py`, `engine/safety.py` | Existing `scripts/fetch-guard.mjs` injection/SSRF policy reused; new per-hop consent hook, untrusted-content label; fail-closed DNS and connect-time checks retained |
+
+Excluded: **TLS-fingerprint impersonation**, **header/profile grids aimed at
+defeating WAF or bot protection**, and **CAPTCHA solving**. Legal/forensic work
+uses documented ordinary access and reports a block with evidence, rather than
+trying to defeat access controls. Stealth browsers, automatic dependency installs,
+third-party social mirrors and automatic learned bypass ordering are not ported.
+The historical optional Python adapter remains a separate legacy feature; the new
+access method never invokes it or treats its standing consent as reader consent.
+Part 2 additional route families are project-authored guidance, with uncertain
+endpoints omitted and external route availability marked `verified: false`.

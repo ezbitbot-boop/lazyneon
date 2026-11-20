@@ -124,3 +124,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Ordinary public access-method adaptations (LazyNeon 0.4.3):
+insane-search, https://github.com/fivetaku/insane-search,
+commit 82211894339e45e7e848c54d47ef4743460bd5df.
+Copyright (c) 2026 fivetaku. MIT License; see LICENSES/insane-search-MIT.txt.
+Exact source mapping and excluded bypass methods: skills/ulw-research/ATTRIBUTION.md.

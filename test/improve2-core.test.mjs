@@ -54,10 +54,10 @@ test('improve2 SessionStart forces notify-only and keeps stdout JSON separate fr
  assert.equal(output.injectSteps[0].systemMessage.systemMessage.split('LazyNeon update available: fixture').length, 2);
  assert.equal(r.stderr, 'update boundary\n');
 });
-test('improve2 release metadata and changelog are 0.4.2', () => {
- for (const file of ['package.json', 'plugin.json']) assert.equal(JSON.parse(read(file)).version, '0.4.2');
- for (const file of ['README.md', 'rules/AGENTS.md']) assert.match(read(file), /LazyNeon \(`v0\.4\.2`\)/);
- assert.match(read('CHANGELOG.md'), /^# 0\.4\.2/);
+test('improve2 release metadata and changelog are 0.4.3', () => {
+ for (const file of ['package.json', 'plugin.json']) assert.equal(JSON.parse(read(file)).version, '0.4.3');
+ for (const file of ['README.md', 'rules/AGENTS.md']) assert.match(read(file), /LazyNeon \(`v0\.4\.3`\)/);
+ assert.match(read('CHANGELOG.md'), /^# 0\.4\.3/);
 });
 test('improve2 README attributes pins and scope loading to core SessionStart', () => {
  assert.doesNotMatch(read('README.md'), /동반 플러그인은 `pins.md`, `ulw-scope.md`를 읽기만/);

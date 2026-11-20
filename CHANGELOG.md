@@ -1,3 +1,10 @@
+# 0.4.3 — 2026-11-20
+
+- Add ordinary public access methods: route index, response validation, official alternates, consent-gated reader and optional guarded Playwright rendering.
+- Keep client/case searches local; stop at authentication/rate limits; record metadata-only local observations.
+- Add public research route families (70 routes) and offline regressions. Live check 2026-11-20: 30 routes returned real data (verified), keyed routes confirmed reachable but need keys, Reddit and archive.today unavailable from scripts, KIPRIS endpoint unconfirmed.
+- Adapt selected insane-search 8221189 methods with attribution; exclude TLS impersonation, WAF header grids and CAPTCHA solving.
+
 # 0.4.2 — 2026-11-20
 
 - Prompt-guide gaps: add on-demand evidence/input design rules, source-language grounding, failure-specific retries, requested report length, dynamic UTC session time, bounded research, competing hypotheses, scoped recovery and readable code guidance. Model behavior gains remain unmeasured.

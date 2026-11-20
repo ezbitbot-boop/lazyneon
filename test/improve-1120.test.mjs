@@ -81,7 +81,7 @@ test('D2 D3 D6 install, coexistence and measurement contracts are documented',()
  assert.match(read('skills/ulw/SKILL.md'),/injection_scan\.mjs/);
 });
 test('D7 A7 A8 release metadata, license and Korean scope match distribution',()=>{
- for(const f of ['package.json','plugin.json']) {const j=JSON.parse(read(f));assert.equal(j.version,'0.4.2');assert.equal(j.license,'SEE LICENSE IN LICENSE');assert.equal(j.companion['lazyneon-workspace'],'>=0.1.0');}
+ for(const f of ['package.json','plugin.json']) {const j=JSON.parse(read(f));assert.equal(j.version,'0.4.3');assert.equal(j.license,'SEE LICENSE IN LICENSE');assert.equal(j.companion['lazyneon-workspace'],'>=0.1.0');}
  assert.match(read('CHANGELOG.md'),/0\.4\.0/);assert.match(read('CHANGELOG.md'),/update/);
  assert.doesNotMatch(read('skills/frontend/ATTRIBUTION.md'),/not committed here|NOT committed to this repository/);
  assert.match(read('README.md'),/`ulw`, `programming`, `remove-ai-slops`/);

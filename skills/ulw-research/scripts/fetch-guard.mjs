@@ -121,9 +121,10 @@ function requestOnce(url, { timeoutMs, maxBytes }) {
  * fetch-compatible (url) -> Response, following up to MAX_REDIRECTS redirects and checking every hop.
  * Throws GuardError for internal targets, unresolvable hosts, oversized bodies and timeouts.
  */
-export async function guardedFetch(url, { timeoutMs = 20_000, maxBytes = MAX_BYTES } = {}) {
+export async function guardedFetch(url, { timeoutMs = 20_000, maxBytes = MAX_BYTES, beforeHop } = {}) {
 	let current = url
 	for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+		if (beforeHop) await beforeHop(current)
 		const res = await requestOnce(current, { timeoutMs, maxBytes })
 		const location = res.headers.location
 		if (res.status >= 300 && res.status < 400 && location) {

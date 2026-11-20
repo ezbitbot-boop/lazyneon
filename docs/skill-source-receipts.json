@@ -454,12 +454,46 @@
       "pinned_sha": "82211894339e45e7e848c54d47ef4743460bd5df",
       "keyword": "insane-search engine",
       "mapped_targets": [
-        "skills/ulw-research/scripts/fetch-guard.mjs"
+        "skills/ulw-research/scripts/fetch-guard.mjs",
+        "skills/ulw-research/scripts/access-method.mjs",
+        "skills/ulw-research/scripts/access-routes.mjs",
+        "skills/ulw-research/scripts/access-validation.mjs",
+        "skills/ulw-research/references/access-routes.json",
+        "skills/ulw-research/references/access-routes.md",
+        "skills/ulw-research/references/search-craft.md"
       ],
       "status": "verified",
       "kind": "inspiration",
       "license": "MIT",
-      "note": "internal-address and injection-signal rules adapted; the engine is called, not bundled, only with --allow-bypass"
+      "note": "internal-address and injection-signal rules adapted; the engine is called, not bundled, only with --allow-bypass",
+      "access_method_port": {
+        "snapshot": "8221189",
+        "source_root": "skills/insane-search/",
+        "files": [
+          "SKILL.md",
+          "engine/phase0.py",
+          "engine/fetch_chain.py",
+          "engine/waf_detector.py",
+          "engine/waf_profiles.yaml",
+          "engine/validators.py",
+          "engine/url_transforms.py",
+          "engine/learning.py",
+          "engine/observations_log.py",
+          "engine/bias_check.py",
+          "engine/content_safety.py",
+          "engine/safety.py",
+          "references/"
+        ],
+        "scope": "Node adaptation of ordinary routes, validation signals, consent-gated fallback, metadata-only observations; no Python engine bundled",
+        "excluded": [
+          "TLS-fingerprint impersonation",
+          "WAF header/profile grids",
+          "CAPTCHA solving",
+          "automatic route learning",
+          "automatic dependency installation"
+        ],
+        "verification": "local snapshot review; external endpoints not live verified"
+      }
     }
   ]
 }

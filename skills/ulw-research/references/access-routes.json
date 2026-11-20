@@ -1,0 +1,1553 @@
+{
+  "schema": 1,
+  "routes": [
+    {
+      "id": "ripgrep",
+      "family": "local",
+      "purpose": "Search client/case material locally",
+      "tool": "rg over case folders",
+      "keys": [],
+      "hosts": [],
+      "egress": "none",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true
+    },
+    {
+      "id": "spotlight",
+      "family": "local",
+      "purpose": "Search client/case material locally",
+      "tool": "macOS mdfind",
+      "keys": [],
+      "hosts": [],
+      "egress": "none",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true
+    },
+    {
+      "id": "document-index",
+      "family": "local",
+      "purpose": "Search client/case material locally",
+      "tool": "local document text index",
+      "keys": [],
+      "hosts": [],
+      "egress": "none",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true
+    },
+    {
+      "id": "embeddings",
+      "family": "local",
+      "purpose": "Search client/case material locally",
+      "tool": "optional offline embeddings; no hosted model",
+      "keys": [],
+      "hosts": [],
+      "egress": "none",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true
+    },
+    {
+      "id": "wayback-availability",
+      "family": "archives",
+      "purpose": "Snapshot availability",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://archive.org/wayback/available?url={url}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "wayback-cdx",
+      "family": "archives",
+      "purpose": "Historical captures",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://web.archive.org/cdx/search/cdx?url={url}&output=json",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "archive-today",
+      "family": "archives",
+      "purpose": "Read-only existing capture lookup; never submit",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "endpoint": "https://archive.ph/newest/{url}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "connection failed (no response within 30 s); unreliable from scripts"
+      }
+    },
+    {
+      "id": "common-crawl",
+      "family": "archives",
+      "purpose": "Discover index collections",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://index.commoncrawl.org/collinfo.json",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "law",
+      "family": "korean",
+      "purpose": "국가법령정보 법령 Open API",
+      "tool": "law.go.kr Open API; OC registration",
+      "keys": [
+        "OC"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; needs OC plus a registered server IP/domain (\"사용자 정보 검증에 실패\")"
+      }
+    },
+    {
+      "id": "precedents",
+      "family": "korean",
+      "purpose": "판례 검색",
+      "tool": "law.go.kr 판례 Open API; OC registration",
+      "keys": [
+        "OC"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "same law.go.kr DRF host as law; needs OC plus registered IP/domain"
+      }
+    },
+    {
+      "id": "court-decisions",
+      "family": "korean",
+      "purpose": "대법원 판결서 인터넷열람",
+      "tool": "Official court portal; guidance only; comply with login/fees",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "dart",
+      "family": "korean",
+      "purpose": "공시 검색",
+      "tool": "DART OpenAPI",
+      "keys": [
+        "DART_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; status 010 \"unregistered key\" without a valid crtfc_key"
+      }
+    },
+    {
+      "id": "kipris",
+      "family": "korean",
+      "purpose": "특허 검색",
+      "tool": "KIPRIS Plus API",
+      "keys": [
+        "KIPRIS_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "base path returned 404; exact KIPRIS Plus endpoint not confirmed"
+      }
+    },
+    {
+      "id": "assembly",
+      "family": "korean",
+      "purpose": "국회 의안정보",
+      "tool": "open.assembly.go.kr API",
+      "keys": [
+        "ASSEMBLY_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; ERROR-300 without KEY"
+      }
+    },
+    {
+      "id": "kci",
+      "family": "korean",
+      "purpose": "학술 인용 검색",
+      "tool": "KCI public portal; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "riss",
+      "family": "korean",
+      "purpose": "학술 자료 검색",
+      "tool": "RISS public portal; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "public-data",
+      "family": "korean",
+      "purpose": "공공데이터포털",
+      "tool": "data.go.kr dataset-specific API",
+      "keys": [
+        "DATA_GO_KR_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "apis.data.go.kr answers; per-dataset key required"
+      }
+    },
+    {
+      "id": "court-auction",
+      "family": "korean",
+      "purpose": "법원경매정보",
+      "tool": "Official court auction portal; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "bigkinds",
+      "family": "korean",
+      "purpose": "뉴스 검색",
+      "tool": "BigKinds API",
+      "keys": [
+        "BIGKINDS_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; \"Blank Access Key\""
+      }
+    },
+    {
+      "id": "openalex",
+      "family": "academic",
+      "purpose": "Discover papers; follow references backward and citing works forward",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "openalex.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://api.openalex.org/works?search={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "semantic-scholar",
+      "family": "academic",
+      "purpose": "Discover papers; follow references backward and citing works forward",
+      "tool": "Provider API guidance",
+      "keys": [
+        "SEMANTIC_SCHOLAR_API_KEY"
+      ],
+      "hosts": [
+        "semanticscholar.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "endpoint": "https://api.semanticscholar.org/graph/v1/paper/search?query={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; keyless requests got HTTP 429 (shared pool) — use the key or back off"
+      }
+    },
+    {
+      "id": "crossref",
+      "family": "academic",
+      "purpose": "Discover papers; follow references backward and citing works forward",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "crossref.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://api.crossref.org/works?query={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "arxiv",
+      "family": "academic",
+      "purpose": "Discover papers; follow references backward and citing works forward",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "arxiv.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://export.arxiv.org/api/query?search_query=all:{query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "pubmed",
+      "family": "academic",
+      "purpose": "Discover papers; follow references backward and citing works forward",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "pubmed.ncbi.nlm.nih.gov"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "github",
+      "family": "code",
+      "purpose": "Code and issue search",
+      "tool": "gh search code / gh search issues (guidance only; do not execute automatically)",
+      "keys": [
+        "GH_TOKEN"
+      ],
+      "hosts": [
+        "github.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "npm",
+      "family": "code",
+      "purpose": "Package search",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "npmjs.com",
+        "registry.npmjs.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://registry.npmjs.org/-/v1/search?text={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "pypi",
+      "family": "code",
+      "purpose": "Package metadata",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "pypi.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://pypi.org/pypi/{package}/json",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "hn-search",
+      "family": "community",
+      "purpose": "Hacker News search",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "news.ycombinator.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://hn.algolia.com/api/v1/search?query={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "stackexchange",
+      "family": "community",
+      "purpose": "Q&A search",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "stackoverflow.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://api.stackexchange.com/2.3/search/advanced?site=stackoverflow&q={query}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "reddit-rss",
+      "family": "community",
+      "purpose": "Public posts; JSON may require OAuth; respect rate limits",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "reddit.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "transform": {
+        "kind": "suffix",
+        "value": ".rss"
+      },
+      "check": {
+        "date": "2026-11-20",
+        "result": "HTTP 404/429 from a non-browser client; Reddit now limits unauthenticated scripted access — treat as unavailable without OAuth"
+      }
+    },
+    {
+      "id": "reddit-json",
+      "family": "community",
+      "purpose": "Public posts; JSON may require OAuth; respect rate limits",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "reddit.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "transform": {
+        "kind": "suffix",
+        "value": ".json"
+      },
+      "check": {
+        "date": "2026-11-20",
+        "result": "HTTP 403 from a non-browser client; requires OAuth app access"
+      }
+    },
+    {
+      "id": "youtube",
+      "family": "community",
+      "purpose": "Video search",
+      "tool": "YouTube Data API search.list",
+      "keys": [
+        "YOUTUBE_API_KEY"
+      ],
+      "hosts": [
+        "youtube.com",
+        "youtu.be"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 403 without key"
+      }
+    },
+    {
+      "id": "wikipedia",
+      "family": "knowledge",
+      "purpose": "Page summary",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "wikipedia.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://en.wikipedia.org/api/rest_v1/page/summary/{title}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "wikidata",
+      "family": "knowledge",
+      "purpose": "Structured knowledge",
+      "tool": "SPARQL query service; guidance only; bounded queries",
+      "keys": [],
+      "hosts": [
+        "wikidata.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "nominatim",
+      "family": "knowledge",
+      "purpose": "Public place lookup",
+      "tool": "Nominatim; guidance only: identifying User-Agent, at most 1 req/s, no bulk geocoding",
+      "keys": [],
+      "hosts": [
+        "nominatim.openstreetmap.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "gdelt",
+      "family": "news",
+      "purpose": "Public news and trends",
+      "tool": "GDELT DOC API; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; HTTP 429 \"one request every 5 seconds\" — pace at ≥5 s"
+      }
+    },
+    {
+      "id": "google-trends",
+      "family": "news",
+      "purpose": "Public news and trends",
+      "tool": "Google Trends UI; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "naver-datalab",
+      "family": "news",
+      "purpose": "Public news and trends",
+      "tool": "Naver DataLab API",
+      "keys": [
+        "NAVER_CLIENT_ID",
+        "NAVER_CLIENT_SECRET"
+      ],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "same openapi.naver.com host as naver-search; key required (not called separately)"
+      }
+    },
+    {
+      "id": "rdap",
+      "family": "osint",
+      "purpose": "Public digital traces; no uploads or scanner submissions",
+      "tool": "Registry RDAP using IANA bootstrap; preferred over WHOIS",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "files",
+        "client URLs",
+        "new scan submissions"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live: rdap.org redirects to the registry (verisign for .com); follow redirects"
+      }
+    },
+    {
+      "id": "crt-sh",
+      "family": "osint",
+      "purpose": "Public digital traces; no uploads or scanner submissions",
+      "tool": "crt.sh read-only certificate transparency lookup",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "files",
+        "client URLs",
+        "new scan submissions"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "dns",
+      "family": "osint",
+      "purpose": "Public digital traces; no uploads or scanner submissions",
+      "tool": "DNS query; guidance only: resolver receives public domain",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "files",
+        "client URLs",
+        "new scan submissions"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "virustotal",
+      "family": "osint",
+      "purpose": "Public digital traces; no uploads or scanner submissions",
+      "tool": "VirusTotal existing hash report only",
+      "keys": [
+        "VIRUSTOTAL_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "files",
+        "client URLs",
+        "new scan submissions"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 without key"
+      }
+    },
+    {
+      "id": "malwarebazaar",
+      "family": "osint",
+      "purpose": "Public digital traces; no uploads or scanner submissions",
+      "tool": "MalwareBazaar existing hash lookup only",
+      "keys": [
+        "MALWAREBAZAAR_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "files",
+        "client URLs",
+        "new scan submissions"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 — Auth-Key now required"
+      }
+    },
+    {
+      "id": "naver-search",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Naver Search API: blog/cafe/news/web",
+      "keys": [
+        "NAVER_CLIENT_ID",
+        "NAVER_CLIENT_SECRET"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 without client id/secret"
+      }
+    },
+    {
+      "id": "brave",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Brave Search API",
+      "keys": [
+        "BRAVE_SEARCH_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 422 without subscription token"
+      }
+    },
+    {
+      "id": "exa",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Exa Search API",
+      "keys": [
+        "EXA_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "POST /search answers; 402 payment required"
+      }
+    },
+    {
+      "id": "tavily",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Tavily Search API",
+      "keys": [
+        "TAVILY_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 without key"
+      }
+    },
+    {
+      "id": "perplexity",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Perplexity Sonar API",
+      "keys": [
+        "PERPLEXITY_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 without key"
+      }
+    },
+    {
+      "id": "kagi",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Kagi Search API",
+      "keys": [
+        "KAGI_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 401 without key"
+      }
+    },
+    {
+      "id": "you",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "You.com Search API",
+      "keys": [
+        "YOU_API_KEY"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "google-programmable",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Google Programmable Search",
+      "keys": [
+        "GOOGLE_SEARCH_API_KEY",
+        "GOOGLE_SEARCH_CX"
+      ],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "endpoint answers; 403 without key"
+      }
+    },
+    {
+      "id": "searxng",
+      "family": "search",
+      "purpose": "Public query discovery; verify primary source",
+      "tool": "Self-hosted SearXNG URL from SEARXNG_URL; keyless; guard even self-hosted URLs",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "google-lens",
+      "family": "images",
+      "purpose": "Reverse image search of public images only",
+      "tool": "google-lens UI; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "client images",
+        "private image metadata"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "tineye",
+      "family": "images",
+      "purpose": "Reverse image search of public images only",
+      "tool": "tineye UI; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "client images",
+        "private image metadata"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "yandex-images",
+      "family": "images",
+      "purpose": "Reverse image search of public images only",
+      "tool": "yandex-images UI; guidance only",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data",
+        "client images",
+        "private image metadata"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "x-oembed",
+      "family": "platform",
+      "purpose": "Public post embed",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "x.com",
+        "twitter.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://publish.twitter.com/oembed?url={url}",
+      "transform": {
+        "kind": "endpoint"
+      },
+      "check": {
+        "date": "2026-11-20",
+        "result": "live: publish.twitter.com redirects to publish.x.com/oembed"
+      }
+    },
+    {
+      "id": "x-syndication",
+      "family": "platform",
+      "purpose": "Public timeline / tweet-result",
+      "tool": "Official syndication reference; guidance only; may truncate",
+      "keys": [],
+      "hosts": [
+        "x.com",
+        "twitter.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "naver-mobile",
+      "family": "platform",
+      "purpose": "Official mobile blog view",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [
+        "blog.naver.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "transform": {
+        "kind": "host",
+        "value": "m.blog.naver.com"
+      },
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "bluesky",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "AT Protocol public.api.bsky.app; guidance only",
+      "keys": [],
+      "hosts": [
+        "bsky.app"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "mastodon",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Instance public API; validate chosen instance first",
+      "keys": [],
+      "hosts": [],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "threads",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Ordinary public page; do not extract unrelated signed media URLs",
+      "keys": [],
+      "hosts": [
+        "threads.net",
+        "threads.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "media",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "yt-dlp metadata guidance only; external CLI is not guard-backed",
+      "keys": [],
+      "hosts": [
+        "youtube.com",
+        "vimeo.com",
+        "twitch.tv",
+        "tiktok.com",
+        "soundcloud.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "openlibrary",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "OpenLibrary public JSON API",
+      "keys": [],
+      "hosts": [
+        "openlibrary.org"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "lobsters",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Lobste.rs public JSON API",
+      "keys": [],
+      "hosts": [
+        "lobste.rs"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "v2ex",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "V2EX public JSON API",
+      "keys": [],
+      "hosts": [
+        "v2ex.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "devto",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "dev.to public articles API",
+      "keys": [],
+      "hosts": [
+        "dev.to"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "medium",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Publisher RSS feed discovery",
+      "keys": [],
+      "hosts": [
+        "medium.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "substack",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Publisher RSS feed discovery",
+      "keys": [],
+      "hosts": [
+        "substack.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    },
+    {
+      "id": "naver-finance",
+      "family": "platform",
+      "purpose": "Official/public discovery",
+      "tool": "Naver Finance public page; unofficial siseJson API not promoted",
+      "keys": [],
+      "hosts": [
+        "finance.naver.com"
+      ],
+      "egress": "public",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": false,
+      "check": {
+        "date": "2026-11-20",
+        "result": "not called: guidance-only or UI route [미확인]"
+      }
+    },
+    {
+      "id": "jina-reader",
+      "family": "platform",
+      "purpose": "Reader fallback; sends public target URL to third party",
+      "tool": "GET",
+      "keys": [],
+      "hosts": [],
+      "egress": "third-party",
+      "neverSend": [
+        "client/case material",
+        "credentials except designated API key to its own provider",
+        "private URLs",
+        "personal data"
+      ],
+      "verified": true,
+      "endpoint": "https://r.jina.ai/{raw_url}",
+      "check": {
+        "date": "2026-11-20",
+        "result": "live response with real data"
+      }
+    }
+  ]
+}

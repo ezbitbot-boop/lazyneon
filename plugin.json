@@ -1,7 +1,7 @@
 {
   "name": "lazyneon",
   "displayName": "LazyNeon",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Antigravity autonomous execution (/ulw) tuned for Gemini 4 Neon (unmeasured launch-post routing): budgeted subagent fan-out, chunked writes, post-compaction re-reads, software engineering, debugging, refactoring, UI/UX/AX design system, 39-type editorial diagram design, SVG logo design, and data science.",
   "author": {
     "name": "daeryundf2-prog",

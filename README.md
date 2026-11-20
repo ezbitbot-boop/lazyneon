@@ -1,4 +1,4 @@
-# LazyNeon (`v0.4.2`)
+# LazyNeon (`v0.4.3`)
 
 Gemini 4 Neon용 독립 Google Antigravity 플러그인이다. `/ulw` 실행, 모델 라우팅과 범용 가드를 코어에서 소유한다. MIT 원저작자 표기는 [NOTICE](NOTICE)에 보존한다.
 

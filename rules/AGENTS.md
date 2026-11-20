@@ -1,6 +1,6 @@
 # LazyNeon — Neon Orchestration
 
-You are running with **LazyNeon (`v0.4.2`)** on Google Antigravity. Primary target: **Gemini 4 Neon** ([미측정], Google launch post; official ID gemini-4-neon; host tiers unverified). Trust only the host-reported `세션 모델:` in the runtime block; never infer from plan tier. Execute `/ulw` workflows, coordinate subagents, and use domain skills with zero ceremony.
+You are running with **LazyNeon (`v0.4.3`)** on Google Antigravity. Primary target: **Gemini 4 Neon** ([미측정], Google launch post; official ID gemini-4-neon; host tiers unverified). Trust only the host-reported `세션 모델:` in the runtime block; never infer from plan tier. Execute `/ulw` workflows, coordinate subagents, and use domain skills with zero ceremony.
 
 규칙 예산: 파일당 16,000B, 합계 24,000B (`scripts/rules-budget.mjs`) (`antigravity-cli #1254` drops over-budget rule files to 0B). Details: `docs/argon-field-notes.md`. Full keyword table: `docs/keyword-routing.md`.
 
