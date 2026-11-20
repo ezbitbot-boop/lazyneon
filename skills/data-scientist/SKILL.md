@@ -1,0 +1,117 @@
+---
+name: data-scientist
+description: "Processes and analyzes data with DuckDB, Polars, and one-shot CLI/script runs (plus resident-kernel lanes where available). Use for CSV/parquet/JSON analysis, group-by/join/aggregation, time series, distributions, cleaning, or plotting a dataset."
+---
+
+# Data Scientist: Hybrid-Engine Data Processing
+
+Answer data questions through the cheapest engine and surface that can prove the answer, and
+decide where the computation should live before touching the data.
+
+## Execution surfaces: one-shot `run_command` first on Antigravity
+
+On Google Antigravity, each `run_command` executes in a fresh shell session (there is no
+persistent REPL/eval kernel tool). **One-shot batched execution via `run_command` is the
+primary default**: combine related profiling, filtering, and aggregation queries into a single
+script or CLI invocation (remember: one approval-gated `run_command` per turn) so input files
+are scanned once per step instead of spawning separate processes per question:
+
+1. **One-shot `run_command` (Antigravity host default)**: run `uv run scripts/quick-query.py <file> [SQL]`,
+   `duckdb` CLI, `uv run --with duckdb,polars python <scratch_script.py>`, or `bun -e` to batch
+   multiple analytical questions in one execution.
+2. **uv isolated lane** (`uv run --with ...`): clean dependency isolation for heavy one-shot
+   scripts, statistical tests, or chart generation without mutating user environments.
+3. **Resident Python / JS kernel (only when running inside an external notebook/REPL harness)**:
+   if an interactive kernel exists, `scripts/ensure-py-deps.sh` caches Polars/pyarrow for
+   `sys.path.insert` and `scripts/ensure-js-deps.sh` prints the `@duckdb/node-api` import path
+   so repeated exploration queries amortize file-load overhead.
+
+Per-surface patterns and pitfalls: read `references/execution-surfaces.md` before first use.
+
+## Engine selection
+
+- **DuckDB** for SQL-shaped work: direct file queries, joins, aggregation, subqueries,
+  window functions. It queries CSV/Parquet/JSON in place without loading, spills to disk
+  past its memory limit, and reads remote files with the same syntax.
+- **Polars** when the pipeline is DataFrame-shaped: expression-chain transforms, reshapes,
+  streaming datasets past RAM — resident in the Python kernel via `ensure-py-deps.sh`.
+  Read `references/polars-lane.md` — the current 1.x API differs from widely-memorized
+  older spellings.
+- **numpy** when numeric work goes beyond SQL/DataFrame aggregation: statistical tests,
+  linear algebra, FFT, random sampling.
+- **matplotlib** for every chart — read `references/visualization.md` first; it carries the
+  quality bar and a mandatory visual check.
+
+Performance folklore ("X is Nx faster at filtering") varies with data shape, cardinality,
+and hardware. When the engine choice materially matters, measure on the actual data instead
+of trusting remembered multipliers.
+
+## Placement: decide where the computation lives
+
+Probe before you compute — one cell: file size, free RAM, and (when unclear) a row count via
+a direct scan. Then place the work:
+
+- **Load into memory** when the working set stays within roughly a quarter of free RAM AND
+  the session will run repeated queries: `CREATE TABLE t AS SELECT ...` (or a collected
+  DataFrame) once, then iterate. One scan up front converts every later query from a file
+  re-scan into milliseconds.
+- **Query in place / stream** when the question is single-pass, or the data exceeds RAM:
+  DuckDB reads files directly (`FROM 'data.csv'`); past RAM, cap DuckDB's memory and let it
+  spill, or use Polars' streaming engine in the Python kernel. NEVER load a larger-than-RAM
+  dataset fully into memory — swapping stalls the whole machine, while streaming merely
+  takes longer.
+- **Query remotely, in place** when the data lives elsewhere: DuckDB reads http(s)/S3
+  Parquet and CSV with projection and predicate pushdown, so fetch the columns and rows the
+  question needs, never the whole file. When data sits in a database, run the aggregation
+  there in its own SQL and pull back the result rows, never a table dump. When data sits on
+  another machine you can execute on, ship the query to the data and return the small
+  result. Rule: result much smaller than data — move the query; repeated local iteration
+  planned — move a pruned copy of the data once.
+
+Sizing heuristics and recipes: `references/placement.md`.
+
+## Hard rules
+
+- **NEVER use pandas.** DuckDB and Polars beat it decisively on every analytical workload this skill covers, and the environments this skill assumes do not ship it — `.df()` on a DuckDB result raises unless pandas is installed; convert with `.pl()` via Arrow instead.
+- For analytical queries over large Excel inputs, convert or stream rows into SQLite/CSV/Parquet first; for **client-facing or court-submitted `.xlsx` deliverables**, format the final workbook with `openpyxl` (see below).
+
+## Large-Scale Text / Subtitle (VTT/STT) & Excel Corpus Pipeline
+
+When auditing thousands of subtitle files (`.vtt`, `.srt`, server STT JSON/TXT — e.g. `yt-dlp` auto-captions or Google STT `recognize_google` parallel chunks; never local Whisper), chat exports, or multi-sheet `.xlsx` logs:
+
+1. **SQLite FTS5 Indexing (`sqlite3` stdlib)**:
+   - Instead of re-scanning raw text/VTT/Excel files on every keyword query, parse once into a local SQLite database with an `fts5` virtual table (`CREATE VIRTUAL TABLE docs_fts USING fts5(source_file, timestamp_str, speaker, content)`).
+   - Normalize timestamps at ingest time to integer `MM분 SS초` (`MM:SS`; or `HH:MM:SS` for multi-hour logs, stripping fractional seconds like `384.94s` or `.0초`).
+   - Run Windows Python scripts with `$env:PYTHONUTF8="1"` via a temporary `.py` file (deleted right after execution) rather than complex nested-quote `python -c` one-liners in PowerShell.
+2. **STT Phonetic False-Positive Filtering & Server STT Verification (음차 오인식·위양성 대조)**:
+   - Server/auto-caption STT transcripts frequently contain homophone or phonetic transliteration errors for domain terms, proper nouns, and foreign words.
+   - STT follows `skills/ulw/references/media-transcription.md`; unverified execution paths must be marked [미확인].
+   - Query candidate phonetic variants broadly in FTS/regex first, then inspect surrounding context lines (`±3~5` utterances) and cross-check against primary documents/metadata to filter out false positives before citing any hit as evidence. Never expose internal multi-pass cross-check notes in the final user-facing report.
+3. **Deliverable `.xlsx` Formatting (`openpyxl` & `crime_schedule_xlsx.py`)**:
+   - Raw unstyled Excel dumps clip CJK text and look unfinished. Whenever producing a deliverable `.xlsx` workbook with `openpyxl`, apply:
+     - **Header styling & freeze panes**: Navy/slate header fill (`PatternFill("solid", fgColor="1B365D")`), bold white font (`Malgun Gothic`, `10pt`), and `ws.freeze_panes = "A2"`.
+     - **Line wrapping & vertical alignment**: `Alignment(wrap_text=True, vertical="top")` on all data cells so multi-line transcripts and notes are readable without manual resizing.
+     - **CJK-aware auto column width & row height**: Measure cell string lengths weighting Korean/CJK characters as `1.7–2.0x` ASCII width, clamp column widths to a sensible range (e.g. `min=12`, `max=65`), and set explicit row heights. Court-specific workbook tooling is an optional domain skill; verify its installed path before use.
+
+## Output contract
+
+Answer the question; report row counts and timing for anything heavy; then stop — no bonus
+charts, no extra exploration passes beyond what the question needed. Chart when asked, or
+when the answer is a shape (trend, distribution, comparison) that prose cannot carry — then
+follow `references/visualization.md` including its visual QA step.
+
+## References
+
+| Read | When |
+| --- | --- |
+| `references/execution-surfaces.md` | before the first query on any surface: kernel patterns, one-shot recipes, escalation rules |
+| `references/polars-lane.md` | DataFrame-shaped pipeline or data past RAM: current API, Arrow handoff, package sets |
+| `references/placement.md` | before heavy or remote work: sizing probe, memory limits, remote reads |
+| `references/visualization.md` | before any chart: type selection, quality bar, CJK fonts, visual QA |
+| `references/uv-setup.md` | uv missing or broken on this machine |
+
+## CLI fallback
+
+When no kernel or REPL surface exists, `uv run scripts/quick-query.py <file> [SQL]`
+(`--filter <polars-sql-expr>`, `--describe`) answers ad-hoc questions with zero code.
+Supports CSV, Parquet, JSON, NDJSON.

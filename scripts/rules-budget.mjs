@@ -1,0 +1,2 @@
+export const RULES_FILE_WARN_BYTES = 16000;
+export const RULES_TOTAL_WARN_BYTES = 24000;

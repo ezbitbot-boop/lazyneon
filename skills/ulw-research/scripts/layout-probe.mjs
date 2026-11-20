@@ -1,0 +1,150 @@
+// layout-probe.mjs - the in-page probe the layout gates consume.
+//
+// buildProbeSource() returns ONE async IIFE expression (the engine's evaluate awaits it): it first
+// forces lazy images to load eagerly and awaits their decode (bounded), so natural sizes are real. The orchestrator evaluates it in the rendered
+// report through the browser skill's owned headless engine and writes the result to boxes.json;
+// gates-layout.mjs reads that file. This module never launches a browser.
+//
+// Selector paths use the SAME rule as html-lite.selectorPath (a unique safe #id anchors the path,
+// otherwise tag segments with :nth-of-type(k) only when the parent has more than one child of that
+// tag, prefixed "body"), so a layout defect can be mapped back to the static tree. The rule lives in
+// PATH_FUNCTION_SOURCE, embedded verbatim in the probe and exercised by the parity test.
+
+export const PROBE_VERSION = 1
+export const SAMPLED_SELECTOR = "figure, .fig, img, svg, table, tr, th, td, h1, h2, h3, p, pre, .page, .a4-page, .a4-sheet, .page-section, [data-page]"
+export const EXCLUDED_ANCESTORS = Object.freeze(["svg", "nav", "header", "footer"])
+
+/** In-page path rule. idCount(id) returns how many elements carry that id. */
+export const PATH_FUNCTION_SOURCE = `function ulwSelectorPath(el, idCount) {
+	const SAFE_ID = /^[A-Za-z_][\\w-]*$/;
+	const segments = [];
+	for (let cur = el; cur && cur.parentElement; cur = cur.parentElement) {
+		const tag = cur.tagName.toLowerCase();
+		const id = cur.id;
+		if (id && SAFE_ID.test(id) && idCount(id) === 1) return ["#" + id].concat(segments).join(" > ");
+		if (tag === "body") return ["body"].concat(segments).join(" > ");
+		if (tag === "html") break;
+		const same = Array.from(cur.parentElement.children).filter((c) => c.tagName === cur.tagName);
+		segments.unshift(same.length > 1 ? tag + ":nth-of-type(" + (same.indexOf(cur) + 1) + ")" : tag);
+	}
+	return segments.join(" > ");
+}`
+
+export class ProbeError extends Error {
+	constructor(code, message) {
+		super(message)
+		this.name = "ProbeError"
+		this.code = code
+	}
+}
+
+/** @param {{ cap?: number, root?: string }} [options] */
+export function buildProbeSource({ cap = 1600, root = "main, article" } = {}) {
+	if (!Number.isInteger(cap) || cap <= 0) throw new ProbeError("invalid_cap", `--cap requires a positive integer, got ${cap}`)
+	if (typeof root !== "string" || root.trim().length === 0) throw new ProbeError("invalid_root", "--root requires a non-empty CSS selector")
+	return `(async () => {
+	const CAP = ${cap};
+	const IMAGE_WAIT_MS = 5000;
+	const PAGE_SEL = ".page, .a4-page, .a4-sheet, .page-section, [data-page]";
+	const BODY_WRAP_SEL = ".sheet-body, .page-body, .page-content, [data-role='page-body']";
+	const ROOT = document.querySelector(${JSON.stringify(root)}) || document.body;
+	const EXCLUDED = ${JSON.stringify(EXCLUDED_ANCESTORS)};
+	const images = Array.from(document.images);
+	for (const img of images) if (img.loading === "lazy") img.loading = "eager";
+	const settle = Promise.all(images.map((img) => (img.complete && img.naturalWidth > 0 ? null : img.decode().catch(() => null))));
+	await Promise.race([settle, new Promise((resolve) => setTimeout(resolve, IMAGE_WAIT_MS))]);
+	${PATH_FUNCTION_SOURCE}
+	const idCount = (id) => document.querySelectorAll("#" + CSS.escape(id)).length;
+	const path = (el) => ulwSelectorPath(el, idCount);
+	const r1 = (n) => Math.round(n * 10) / 10;
+	const rect = (el) => { const b = el.getBoundingClientRect(); return { x: r1(b.left + scrollX), y: r1(b.top + scrollY), w: r1(b.width), h: r1(b.height) }; };
+	const textTightHeight = (el) => {
+		const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+			acceptNode: (n) => (n.nodeValue && n.nodeValue.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+		});
+		let minT = Infinity;
+		let maxB = -Infinity;
+		const range = document.createRange();
+		for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+			range.selectNodeContents(n);
+			const b = range.getBoundingClientRect();
+			if (b.height > 0) {
+				if (b.top < minT) minT = b.top;
+				if (b.bottom > maxB) maxB = b.bottom;
+			}
+		}
+		return maxB >= minT ? r1(maxB - minT) : 0;
+	};
+	const excluded = (el) => { for (let p = el.parentElement; p; p = p.parentElement) if (EXCLUDED.includes(p.tagName.toLowerCase())) return true; return false; };
+	const rawAll = Array.from(ROOT.querySelectorAll(${JSON.stringify(SAMPLED_SELECTOR)})).filter((el) => {
+		if (excluded(el)) return false;
+		const b = el.getBoundingClientRect();
+		return b.width > 0 || b.height > 0;
+	});
+	const pageEls = rawAll.filter((el) => el.matches(PAGE_SEL));
+	const restEls = rawAll.filter((el) => !el.matches(PAGE_SEL));
+	const sampled = pageEls.concat(restEls.slice(0, Math.max(0, CAP - pageEls.length)));
+	const boxes = sampled.map((el, idx) => {
+		const cs = getComputedStyle(el);
+		const parent = el.parentElement;
+		const tag = el.tagName.toLowerCase();
+		const pt = r1(parseFloat(cs.paddingTop) || 0);
+		const pb = r1(parseFloat(cs.paddingBottom) || 0);
+		const mt = r1(parseFloat(cs.marginTop) || 0);
+		const mb = r1(parseFloat(cs.marginBottom) || 0);
+		let contentH = null;
+		if (tag === "td" || tag === "th") {
+			contentH = textTightHeight(el);
+		}
+		const isPage = el.matches(PAGE_SEL);
+		let flowBottom = null;
+		let flowCount = 0;
+		if (isPage) {
+			const rawKids = Array.from(el.children).filter((c) => {
+				const ccs = getComputedStyle(c);
+				return ccs.position !== "absolute" && ccs.position !== "fixed" && !c.matches("footer, .page-footer, .sheet-footer, [data-role='footer']");
+			});
+			const flowKids = [];
+			for (const kid of rawKids) {
+				const kcs = getComputedStyle(kid);
+				if ((kid.matches(BODY_WRAP_SEL) || parseFloat(kcs.flexGrow) > 0) && kid.children.length > 0) {
+					for (const grand of Array.from(kid.children)) {
+						const gcs = getComputedStyle(grand);
+						if (gcs.position !== "absolute" && gcs.position !== "fixed") flowKids.push(grand);
+					}
+				} else {
+					flowKids.push(kid);
+				}
+			}
+			flowCount = flowKids.length;
+			if (flowKids.length > 0) {
+				flowBottom = Math.max(...flowKids.map((c) => { const cb = rect(c); return r1(cb.y + cb.h); }));
+			}
+		}
+		const box = {
+			selector: path(el), tag, rect: rect(el),
+			parentSelector: parent ? path(parent) : null, parentRect: parent ? rect(parent) : null,
+			parentOverflow: parent ? { x: getComputedStyle(parent).overflowX, y: getComputedStyle(parent).overflowY } : null,
+			scroll: { sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight },
+			overflow: { x: cs.overflowX, y: cs.overflowY }, position: cs.position,
+			whiteSpace: cs.whiteSpace,
+			textLen: (el.textContent || "").trim().length,
+			spacing: { pt, pb, mt, mb },
+			contentH,
+			isPage,
+			pageIndex: isPage ? pageEls.indexOf(el) : null,
+			pageTotal: isPage ? pageEls.length : null,
+			isCover: isPage && el.matches(".cover, .title-page, [data-page-role='cover']"),
+			flowBottom,
+			flowCount,
+			isSubRow: tag === "tr" && el.classList.contains("row-sub"),
+			span: (tag === "td" || tag === "th") ? { row: el.rowSpan || 1, col: el.colSpan || 1, hasMedia: Boolean(el.querySelector("img, svg, canvas")) } : null,
+		};
+		if (el.tagName === "IMG") { box.objectFit = cs.objectFit; box.natural = { w: el.naturalWidth, h: el.naturalHeight }; }
+		return box;
+	});
+	return { probe_version: ${PROBE_VERSION}, viewport: { w: innerWidth, h: innerHeight },
+		document: { w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight },
+		count: rawAll.length, truncated: rawAll.length > CAP, boxes };
+})()`
+}

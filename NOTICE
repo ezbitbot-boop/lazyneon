@@ -1,0 +1,126 @@
+Third-party notices for LazyNeon
+
+1. paperthin skills (`hate`, `shower`, `factchk`, `mandela`, `dedot`)
+
+The skills hate, shower, factchk, mandela, and dedot (skills/<name>/SKILL.md)
+are adapted from LilMGenius/paperthin (https://github.com/LilMGenius/paperthin),
+skills/depth/<name>, rewritten for Google Antigravity tool names.
+paperthin is used under the MIT License:
+
+MIT License
+
+Copyright (c) 2026 LilMGenius
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+2. diagram-design (`skills/diagram-design/`)
+
+Copied from cathrynlavery/diagram-design (https://github.com/cathrynlavery/diagram-design),
+skills/diagram-design at commit f6db0decea96de66b901331a0f79a8d4b147ebae (2.6.164), plus the
+repository-level checker scripts and fixtures its references call (copied into
+skills/diagram-design/scripts/). MIT License (`license: MIT` in its SKILL.md). Our changes:
+three Gemini Argon anti-pattern rows in section 4 and Antigravity command wrappers.
+
+-------------------------------------------------------------------------------
+
+3. logo-design (`skills/logo-design/`)
+
+Copied from kaankiziltug/logo-design-skill (https://github.com/kaankiziltug/logo-design-skill),
+skills/logo-design at commit e9eaddc07895575253d6663320354a708f53e955: the SVG logo and
+brand-identity workflow, Python audit/preview/export scripts (`skills/logo-design/scripts/`)
+and the classified reference catalog (`skills/logo-design/assets/library/`). Skill
+documentation and helper scripts are distributed under the MIT License; public vector reference files (derived
+from open SVG logo collections such as gilbarbara/logos under CC0-1.0) are
+included strictly for visual study and geometric benchmarking. All brand names,
+wordmarks, and symbols in `assets/library/svg/` remain trademarks of their
+respective owners and must never be copied, traced, or redistributed as client
+deliverables.
+
+-------------------------------------------------------------------------------
+
+4. oh-my-openagent shared skills (`ast-grep`, `coding-agent-sessions`, `data-scientist`,
+   `debugging`, `frontend`, `git-master`, `programming`, `refactor`, `remove-ai-slops`,
+   `visual-qa`; `ulw` and `ulw-research` started from it and have since diverged)
+
+Adapted from code-yeongyu/oh-my-openagent (https://github.com/code-yeongyu/oh-my-openagent),
+packages/shared-skills/skills, three-way merged with our Antigravity changes at commit
+3a5891d18cb512c7996ae1160ae67c70427f4a57 (2026-11-15). Rewritten for Google Antigravity tool
+names and Gemini Argon field notes. Upstream terms: third-party components keep their own
+licenses (see skills/frontend/ATTRIBUTION.md); everything else is under the Sustainable Use
+License 1.0 in the upstream LICENSE.md.
+
+
+## pstack (Lauren Tan, MIT) — no-comments, encode-lessons, create-verification-skill
+
+Ported on 2026-11-16 from michael-denyer/pstack-claude a12b04786023e762f12f5de7bb5fafb8c23f8c36 (`plugins/pstack`), which carries the upstream cursor/plugins pstack skills under the MIT License, Copyright (c) 2026 Lauren Tan.
+
+- `skills/no-comments/`: rewritten for Antigravity (`invoke_subagent` with the `comment-sicko` prompt); `references/comment-sicko.md` is the upstream agent body, verbatim.
+- `skills/encode-lessons/`: merges `principle-encode-lessons-in-structure` and `principle-fix-root-causes`, lightly edited.
+- `skills/create-verification-skill/`: upstream text with Antigravity paths (`.agents/skills/verify/`), the maintenance step folded in; `references/feature-map-example/` verbatim.
+
+```
+MIT License
+
+Copyright (c) 2026 Lauren Tan
+Copyright (c) 2026 Michael Denyer
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+-------------------------------------------------------------------------------
+
+LazyNeon is forked from LazyArgon 41eb133 (same author; relicensed under MIT here, with the exceptions in LICENSE).
+Original developer: daeryundf2-prog.
+Copyright (c) 2026 daeryundf2-prog
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

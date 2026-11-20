@@ -1,0 +1,246 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { extractTargetFile, extractWriteBody } from "../scripts/write_chunk_guard.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const HOOKS_JSON = JSON.parse(fs.readFileSync(path.join(ROOT, "hooks.json"), "utf8"));
+
+const FEEDBACK_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-feedback-"));
+process.on("exit", () => fs.rmSync(FEEDBACK_DIR, { recursive: true, force: true }));
+
+// PostToolUse guards are wrapped by post_tool_feedback.mjs: the hook always returns {} and queues failures.
+function takeFeedback(conversationId) {
+	const file = path.join(FEEDBACK_DIR, `${conversationId}.jsonl`);
+	if (!fs.existsSync(file)) return "";
+	const text = fs.readFileSync(file, "utf8");
+	fs.rmSync(file);
+	return text;
+}
+
+function runShCommand(cmd, stdinPayload, cwd = ROOT, extraEnv = {}) {
+	const env = { ...process.env, LAZYNEON_FEEDBACK_DIR: FEEDBACK_DIR, ...extraEnv };
+	delete env.PLUGIN_ROOT;
+	const resolvedCmd = cmd.replace(/\$\{PLUGIN_ROOT:-\.\}/g, env.PLUGIN_ROOT || ".");
+	return spawnSync(resolvedCmd, {
+		cwd,
+		env,
+		input: stdinPayload,
+		encoding: "utf8",
+		shell: true,
+	});
+}
+
+test("#given core hooks.json #when inspected #then PreToolUse and PostToolUse match edit_file|EditFile and Stop is not duplicated", () => {
+	const preMatcher = new RegExp(HOOKS_JSON.hooks.PreToolUse[0].matcher);
+	const postMatcher = new RegExp(HOOKS_JSON.hooks.PostToolUse[0].matcher);
+	for (const tool of ["write_file", "WriteFile", "edit_file", "EditFile", "write_to_file", "replace_file_content"]) {
+		assert.ok(preMatcher.test(tool), `lazyneon PreToolUse matcher missing ${tool}`);
+		assert.ok(postMatcher.test(tool), `lazyneon PostToolUse matcher missing ${tool}`);
+	}
+	assert.equal(HOOKS_JSON.hooks.Stop?.length, 1);
+
+	// Check every registration, including any entries beyond the first matcher.
+	for (const event of ['PreToolUse', 'PostToolUse']) {
+		for (const tool of ['write_file', 'WriteFile', 'edit_file', 'EditFile']) {
+			assert.ok(HOOKS_JSON.hooks[event].some(r => new RegExp(r.matcher).test(tool)), `core ${event} matcher missing ${tool}`);
+		}
+		for (const registration of HOOKS_JSON.hooks[event]) {
+			for (const hook of registration.hooks) {
+				assert.match(hook.command, /scripts\/.*\.mjs/);
+			}
+		}
+	}
+	assert.equal(HOOKS_JSON.hooks.Stop.length, 1, "core registers exactly one Stop hook");
+});
+
+test("#given write_chunk_guard.mjs #when called with write_file({Path, Content}) or edit_file({Path, Replacement}) #then extracts Path and enforces chunk limits", () => {
+	const preCmd = HOOKS_JSON.hooks.PreToolUse[0].hooks[0].command;
+
+	const writePayload = {
+		toolCall: {
+			name: "write_file",
+			args: { Path: "/tmp/test.mjs", Content: "const x = 1;\n".repeat(260) },
+		},
+	};
+	assert.equal(extractTargetFile(writePayload), "/tmp/test.mjs");
+	assert.ok(extractWriteBody(writePayload).includes("const x = 1;"));
+	const denyWrite = runShCommand(preCmd, JSON.stringify(writePayload));
+	assert.equal(denyWrite.status, 1);
+	assert.equal(JSON.parse(denyWrite.stdout).decision, "deny");
+
+	const editPayload = {
+		toolCall: {
+			name: "edit_file",
+			args: { Path: "/tmp/test.mjs", Target: "const x = 1;", Replacement: "y".repeat(25 * 1024) },
+		},
+	};
+	assert.equal(extractTargetFile(editPayload), "/tmp/test.mjs");
+	const denyEdit = runShCommand(preCmd, JSON.stringify(editPayload));
+	assert.equal(denyEdit.status, 1);
+	assert.equal(JSON.parse(denyEdit.stdout).decision, "deny");
+
+	const okEdit = {
+		toolCall: {
+			name: "edit_file",
+			args: { Path: "/tmp/test.mjs", Target: "const x = 1;", Replacement: "const x = 2;\n" },
+		},
+	};
+	const allowEdit = runShCommand(preCmd, JSON.stringify(okEdit));
+	assert.equal(allowEdit.status, 0);
+	assert.deepEqual(JSON.parse(allowEdit.stdout), {});
+
+	const edit135Payload = {
+		toolCall: {
+			name: "edit_file",
+			args: {
+				Path: "/tmp/test.mjs",
+				Target: Array.from({ length: 135 }, (_, i) => `const old_${i} = ${i};`).join("\n"),
+				Replacement: Array.from({ length: 135 }, (_, i) => `const next_${i} = ${i};`).join("\n"),
+			},
+		},
+	};
+	const allowEdit135 = runShCommand(preCmd, JSON.stringify(edit135Payload));
+	assert.equal(allowEdit135.status, 0, allowEdit135.stderr);
+	assert.deepEqual(JSON.parse(allowEdit135.stdout), {});
+
+	const patch260 = [
+		"*** Begin Patch",
+		"*** Update File: /tmp/test.mjs",
+		"@@",
+		...Array.from({ length: 256 }, (_, i) => `+const added_${i} = ${i};`),
+		"*** End Patch",
+	].join("\n");
+	const applyPatchPayload = {
+		toolCall: {
+			name: "apply_patch",
+			args: { patch: patch260 },
+		},
+	};
+	const denyPatch = runShCommand(preCmd, JSON.stringify(applyPatchPayload));
+	assert.equal(denyPatch.status, 1);
+	assert.equal(JSON.parse(denyPatch.stdout).decision, "deny");
+});
+
+test("#given PostToolUse guards #when transcript contains write_file({Path, Content}) or edit_file({Path, Replacement}) #then detects broken markdown and JSON", () => {
+	const postHooks = HOOKS_JSON.hooks.PostToolUse[0].hooks;
+	const mdCmd = postHooks.find((h) => h.command.includes("markdown_structure_guard.mjs")).command;
+	const jsonCmd = postHooks.find((h) => h.command.includes("json_schema_guard.mjs")).command;
+
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-hg-"));
+	try {
+		const brainDir = path.join(tmpDir, "brain", "conv-hg");
+		const logsDir = path.join(brainDir, ".system_generated", "logs");
+		fs.mkdirSync(logsDir, { recursive: true });
+
+		const brokenMd = path.join(tmpDir, "doc.md");
+		fs.writeFileSync(brokenMd, "# Title\n\n| A | B |\n|---|---|\n| 1 | 2 | 3 |\n", "utf8");
+		const mdStep = {
+			step_index: 2,
+			source: "MODEL",
+			type: "PLANNER_RESPONSE",
+			status: "DONE",
+			tool_calls: [{ name: "edit_file", args: { Path: brokenMd, Target: "| 1 | 2 |", Replacement: "| 1 | 2 | 3 |" } }],
+		};
+		fs.writeFileSync(path.join(logsDir, "transcript.jsonl"), `${JSON.stringify(mdStep)}\n`, "utf8");
+		const mdPayload = JSON.stringify({
+			conversationId: "conv-hg",
+			transcriptPath: path.join(logsDir, "transcript.jsonl"),
+			artifactDirectoryPath: brainDir,
+			stepIdx: 3,
+		});
+		const mdFail = runShCommand(mdCmd, mdPayload);
+		assert.equal(mdFail.status, 0, mdFail.stderr);
+		assert.match(takeFeedback("conv-hg"), /table_column_mismatch/);
+
+		const brokenJson = path.join(tmpDir, "pkg.json");
+		fs.writeFileSync(brokenJson, '{"version": "invalid-semver"}', "utf8");
+		const jsonStep = {
+			step_index: 4,
+			source: "MODEL",
+			type: "PLANNER_RESPONSE",
+			status: "DONE",
+			tool_calls: [{ name: "write_file", args: { Path: brokenJson, Content: '{"version": "invalid-semver"}' } }],
+		};
+		fs.writeFileSync(path.join(logsDir, "transcript.jsonl"), `${JSON.stringify(jsonStep)}\n`, "utf8");
+		const jsonPayload = JSON.stringify({
+			conversationId: "conv-hg",
+			transcriptPath: path.join(logsDir, "transcript.jsonl"),
+			artifactDirectoryPath: brainDir,
+			stepIdx: 5,
+		});
+		const jsonFail = runShCommand(jsonCmd, jsonPayload);
+		assert.equal(jsonFail.status, 0, jsonFail.stderr);
+		assert.match(takeFeedback("conv-hg"), /JSON SCHEMA GUARD/);
+	} finally {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	}
+});
+
+test("#given stop_claim_guard.mjs #when fullyIdle:false, executionNum:2, or USER_CANCELED #then passes immediately with {} and exit 0", () => {
+	const stopCmd = HOOKS_JSON.hooks.Stop[0].command;
+	const grandClaim = "모든 검증을 100% 완벽하게 완료했습니다.";
+
+	for (const bypassPayload of [
+		{ hook_event_name: "Stop", fullyIdle: false, last_assistant_message: grandClaim },
+		{ hook_event_name: "Stop", executionNum: 2, last_assistant_message: grandClaim },
+		{ hook_event_name: "Stop", terminationReason: "USER_CANCELED", last_assistant_message: grandClaim },
+		{ hook_event_name: "Stop", terminationReason: "MAX_TOKEN_BUDGET_EXCEEDED", last_assistant_message: grandClaim },
+	]) {
+		const res = runShCommand(stopCmd, JSON.stringify(bypassPayload), ROOT, { LAZYNEON_STOP_GUARD: "enforce" });
+		assert.equal(res.status, 0, res.stderr);
+		assert.deepEqual(JSON.parse(res.stdout), {});
+	}
+
+	const blockPayload = {
+		hook_event_name: "Stop",
+		fullyIdle: true,
+		executionNum: 1,
+		terminationReason: "NO_TOOL_CALL",
+		last_assistant_message: grandClaim,
+	};
+	const blockRes = runShCommand(stopCmd, JSON.stringify(blockPayload), ROOT, { LAZYNEON_STOP_GUARD: "enforce" });
+	assert.equal(blockRes.status, 0);
+	assert.equal(JSON.parse(blockRes.stdout).decision, "continue");
+
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-substop-"));
+	try {
+		const brainDir = path.join(tmpDir, "brain", "conv-substop");
+		const logsDir = path.join(brainDir, ".system_generated", "logs");
+		fs.mkdirSync(logsDir, { recursive: true });
+		const transcriptPath = path.join(logsDir, "transcript.jsonl");
+		const steps = [
+			{ step_index: 1, source: "SYSTEM", type: "USER_INPUT", status: "DONE", content: "파일을 수정하라" },
+			{
+				step_index: 2,
+				source: "MODEL",
+				type: "PLANNER_RESPONSE",
+				status: "DONE",
+				content: "",
+				tool_calls: [{ name: "send_message", args: { Recipient: "parent-agent", Message: "모든 수정을 100% 완벽히 완료했습니다." } }],
+			},
+			{ step_index: 3, source: "SYSTEM", type: "GENERIC", status: "DONE", content: "sent" },
+			{ step_index: 4, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", content: "" },
+		];
+		fs.writeFileSync(transcriptPath, `${steps.map((s) => JSON.stringify(s)).join("\n")}\n`, "utf8");
+		const subPayload = {
+			hook_event_name: "Stop",
+			conversationId: "conv-substop",
+			cwd: tmpDir,
+			transcriptPath,
+			artifactDirectoryPath: brainDir,
+			fullyIdle: true,
+			executionNum: 0,
+			terminationReason: "NO_TOOL_CALL",
+		};
+		const subRes = runShCommand(stopCmd, JSON.stringify(subPayload), ROOT, { LAZYNEON_STOP_GUARD: "enforce" });
+		assert.equal(subRes.status, 0, subRes.stderr);
+		assert.equal(JSON.parse(subRes.stdout).decision, "continue");
+	} finally {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	}
+});

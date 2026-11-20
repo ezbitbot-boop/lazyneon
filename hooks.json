@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./scripts/session_start.mjs",
+        "timeout": 30
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/write_chunk_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/post_tool_feedback.mjs batch ./scripts/markdown_structure_guard.mjs ./scripts/json_schema_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^(read_file|ReadFile|Read|view_file|view_file_outline|view_code_item|list_dir|grep_search|find_by_name|search_web|read_url_content|codebase_search|run_command|RunCommand|exec_command|execute_command|Bash|bash|Shell|shell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/post_tool_feedback.mjs batch ./scripts/lookup_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./scripts/stop_claim_guard.mjs",
+        "timeout": 30
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./scripts/post_tool_feedback.mjs inject",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "node ./scripts/usage_guard.mjs",
+        "timeout": 30
+      }
+    ]
+  }
+}

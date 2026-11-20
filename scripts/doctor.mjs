@@ -1,0 +1,567 @@
+#!/usr/bin/env node
+import {pluginProvenance, provenanceLine} from './provenance.mjs';
+// doctor.mjs — lazyneon 플러그인 진단 (읽기 전용). 파일을 만들거나 고치지 않는다.
+// 검사: Node/Python 버전, hooks.json 배선과 스크립트 존재, 스킬 프런트매터, 독립 코어 가드,
+// 범위 잠금 파일, 매니페스트 버전 일치. `--json` 은 기계 판독 출력, `--strict` 는 warn 도 실패로 센다.
+import { isMainModule } from './is-main.mjs';
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { liveRpcSkipReason, pythonVersionStatus } from './doctor-runtime.mjs';
+import { RULES_FILE_WARN_BYTES, RULES_TOTAL_WARN_BYTES } from "./rules-budget.mjs";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const checks = [];
+
+function add(id, status, detail) {
+	if (id === "antigravity.live_rpc" && process.env.LAZYNEON_LS_RPC_MOCK_JSON) {
+		checks.push({ id, status: status === "ok" ? "skip" : status, source: "mock", detail: `모의 RPC (실시간 미검증): ${detail.replace(/실시간 로더/g, "모의 로더").replace(/live RPC/g, "mock RPC")}` });
+	} else checks.push({ id, status, detail });
+}
+
+function nodeVersion() {
+	const major = Number.parseInt(process.versions.node.split(".")[0], 10);
+	add("node", major >= 20 ? "ok" : "fail", `node ${process.versions.node} (>=20 필요)`);
+}
+
+function pythonVersion() {
+	// Windows 의 python3/python 은 Microsoft Store 별칭일 수 있어 느리거나 멈춘다. py 런처를 먼저 쓰고, 각 호출에 제한 시간을 둔다.
+	const cands = process.platform === "win32" ? [["py", ["-3", "--version"]], ["python", ["--version"]], ["python3", ["--version"]]] : [["python3", ["--version"]], ["python", ["--version"]]];
+	for (const [cmd, cmdArgs] of cands) {
+		const res = spawnSync(cmd, cmdArgs, { encoding: "utf8", timeout: 5000 });
+		if (!res.error && res.status === 0) {
+			const version = (res.stdout || res.stderr).trim();
+			add("python", pythonVersionStatus(version), `${cmd}: ${version} (Python >=3.10 필요)`);
+			return;
+		}
+	}
+	add("python", "warn", "python3 없음 — tools/smoke_test.py 와 diagram/logo 스크립트 비활성");
+}
+
+function collectHookScripts(hooksJsonPath, pluginRoot, label) {
+	let data;
+	try {
+		data = JSON.parse(readFileSync(hooksJsonPath, "utf8"));
+	} catch (e) {
+		return { ok: false, error: `${label}/hooks.json JSON 파싱 실패: ${e.message}`, scripts: [], missing: [], data: null };
+	}
+	const scripts = new Set();
+	for (const entries of Object.values(data.hooks || {})) {
+		if (!Array.isArray(entries)) return { ok: false, error: `${label}/hooks.json 이벤트 배열 필요` };
+		for (const entry of entries) {
+			if (!entry || typeof entry !== "object") return { ok: false, error: `${label}/hooks.json 잘못된 훅 항목` };
+			const hooks = Array.isArray(entry.hooks) ? entry.hooks : [entry];
+			for (const h of hooks) {
+				if (!h || typeof h !== "object") return { ok: false, error: `${label}/hooks.json 잘못된 명령 항목` };
+				for (const m of String(h.command || "").matchAll(/\.\/scripts\/([\w.-]+\.mjs)/g)) scripts.add(m[1]);
+			}
+		}
+	}
+	const missing = [...scripts]
+		.filter((s) => !existsSync(join(pluginRoot, "scripts", s)))
+		.map((s) => `${label}/scripts/${s}`);
+	return { ok: true, scripts: [...scripts], missing, data };
+}
+
+const EXPECTED_HOOKS = {
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./scripts/session_start.mjs",
+        "timeout": 30
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/write_chunk_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/post_tool_feedback.mjs batch ./scripts/markdown_structure_guard.mjs ./scripts/json_schema_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^(read_file|ReadFile|Read|view_file|view_file_outline|view_code_item|list_dir|grep_search|find_by_name|search_web|read_url_content|codebase_search|run_command|RunCommand|exec_command|execute_command|Bash|bash|Shell|shell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/post_tool_feedback.mjs batch ./scripts/lookup_guard.mjs",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./scripts/stop_claim_guard.mjs",
+        "timeout": 30
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./scripts/post_tool_feedback.mjs inject",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "node ./scripts/usage_guard.mjs",
+        "timeout": 30
+      }
+    ]
+  }
+};
+
+function hooksWiring() {
+	const p = join(root, "hooks.json");
+	if (!existsSync(p)) {
+		add("hooks.json", "fail", "파일 없음");
+		return;
+	}
+	const mainRes = collectHookScripts(p, root, "lazyneon");
+	if (!mainRes.ok) {
+		add("hooks.json", "fail", mainRes.error);
+		return;
+	}
+	for (const [event, expected] of Object.entries(EXPECTED_HOOKS.hooks)) {
+		const actual = mainRes.data.hooks?.[event];
+		const signature = entries => JSON.stringify(entries.map(entry => ({
+			matcher: entry.matcher ?? null,
+			hooks: (entry.hooks ?? [entry]).map(h => ({ type: h.type, command: h.command })),
+		})));
+		let valid = Array.isArray(actual);
+		try {
+			for (const entry of actual ?? []) if (entry.matcher !== undefined) new RegExp(entry.matcher);
+			valid = valid && signature(actual) === signature(expected);
+		} catch { valid = false; }
+		add(`hooks.mapping.${event}`, valid ? "ok" : "fail", valid ? `${event} 배선 확인` : `${event} 필수 matcher/command 배선 누락 또는 변경`);
+	}
+	for (const event of Object.keys(mainRes.data.hooks ?? {})) {
+		if (!(event in EXPECTED_HOOKS.hooks)) add(`hooks.mapping.${event}`, "warn", "예상 밖 이벤트");
+	}
+	const totalScripts = mainRes.scripts.length;
+	const missing = [...mainRes.missing];
+
+	add(
+		"hooks.scripts",
+		missing.length ? "fail" : "ok",
+		missing.length ? `없는 스크립트: ${missing.join(", ")}` : `${totalScripts}개 스크립트 존재 (lazyneon core)`,
+	);
+	add(
+		"hooks.session_start",
+		mainRes.data.hooks?.SessionStart ? "ok" : "warn",
+		mainRes.data.hooks?.SessionStart ? "SessionStart 배선됨" : "SessionStart 훅 없음 — 런타임 상태 주입 불가",
+	);
+}
+
+function skillsFrontmatter() {
+	const dir = join(root, "skills");
+	if (!existsSync(dir)) {
+		add("skills", "fail", "skills/ 없음");
+		return;
+	}
+	const bad = [];
+	let count = 0;
+	for (const name of readdirSync(dir)) {
+		const skill = join(dir, name, "SKILL.md");
+		if (!existsSync(skill)) {
+			bad.push(`${name}: SKILL.md 없음`);
+			continue;
+		}
+		count += 1;
+		const head = readFileSync(skill, "utf8").replace(/\r\n/g, "\n").slice(0, 8000);
+		const fm = head.match(/^---\n([\s\S]*?)\n---/);
+		const body = fm ? fm[1] : "";
+		if (!/^name:\s*\S/m.test(body) || !/^description:\s*\S/m.test(body)) bad.push(`${name}: 프런트매터(name/description) 불완전`);
+	}
+	add("skills", bad.length ? "fail" : "ok", bad.length ? bad.join("; ") : `${count}개 스킬 프런트매터 정상`);
+}
+
+function manifestVersions() {
+	try {
+		const plugin = JSON.parse(readFileSync(join(root, "plugin.json"), "utf8")).version;
+		const pkgPath = join(root, "package.json");
+		const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, "utf8")).version : plugin;
+		const readme = (readFileSync(join(root, "README.md"), "utf8").match(/v(\d+\.\d+\.\d+)/) || [])[1];
+		const rules = (readFileSync(join(root, "rules", "AGENTS.md"), "utf8").match(/LazyNeon \(`v(\d+\.\d+\.\d+)`\)/) || [])[1];
+		const all = { plugin, pkg, readme, rules };
+		const distinct = new Set(Object.values(all));
+		add("versions", distinct.size === 1 ? "ok" : "fail", JSON.stringify(all));
+	} catch (e) {
+		add("versions", "fail", e.message);
+	}
+}
+
+function scopeLock() {
+	const p = join(process.cwd(), ".lazyneon", "ulw-scope.md");
+	add("scope_lock", "ok", existsSync(p) ? `진행 중 범위 잠금 있음: ${p}` : "범위 잠금 없음 (유휴)");
+}
+
+// Inspect configured model IDs only; never print keys or tokens.
+function findKey(node, key, depth = 0) {
+	if (!node || typeof node !== "object" || depth > 6) return undefined;
+	if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];
+	for (const v of Object.values(node)) {
+		const hit = findKey(v, key, depth + 1);
+		if (hit !== undefined) return hit;
+	}
+	return undefined;
+}
+
+function modelProvider() {
+	const home = process.env.HOME || process.env.USERPROFILE || "";
+	const candidates = [
+		join(home, ".gemini", "settings.json"),
+		join(home, ".gemini", "config", "config.json"),
+		join(home, ".gemini", "antigravity", "settings.json"),
+		join(home, ".antigravity", "settings.json"),
+	];
+	for (const file of candidates) {
+		if (!existsSync(file)) continue;
+		let text;
+		let data;
+		try {
+			text = readFileSync(file, "utf8");
+			data = JSON.parse(text);
+		} catch {
+			add("antigravity.model_provider", "warn", `[미확인] ${file}: 설정 읽기/JSON 파싱 실패`);
+			return;
+		}
+		const provider = findKey(data, "modelProvider");
+		if (provider === undefined) continue;
+		const routing = JSON.parse(readFileSync(join(root, "skills", "ulw", "references", "model-routing.json"), "utf8"));
+		const family = routing.roles.default.model.replace(/-(low|medium|high|xhigh)$/, "");
+		const mappings = findKey(data, "customModelsConfig");
+		const found = new Set();
+		function collect(node) {
+			if (!node || typeof node !== "object") return;
+			for (const [key, value] of Object.entries(node)) {
+				if (["id", "model", "modelId"].includes(key) && typeof value === "string") {
+					const id = value.replace(/^gemini-api:\/\//, "");
+					if (/^gemini-[a-z0-9.-]+$/.test(id)) found.add(id);
+				}
+				collect(value);
+			}
+		}
+		collect(mappings);
+		const mapped = [...found].some((id) => id.replace(/-(low|medium|high|xhigh)$/, "") === family);
+		const detail = `${file}: modelProvider=${typeof provider === "string" ? provider : "set"}; 발견한 모델: ${[...found].join(", ") || "없음"}`;
+		if (provider === "gemini" && !mapped) {
+			add("antigravity.model_provider", "warn", `${detail}; LazyNeon 기본 ${family} 매핑 필요 — 다른 모델로 폴백할 수 있음. customModelsConfig에 gemini-api://${family} 등록`);
+			return;
+		}
+		add("antigravity.model_provider", "ok", detail);
+		return;
+	}
+	add("antigravity.model_provider", "skip", "[미확인] 후보 설정 파일에 modelProvider 없음; 런타임 인증 모드 미검사");
+}
+
+// 규칙 파일이 호스트 토큰 예산을 넘으면 잘리지 않고 통째로 빠진다(antigravity-cli #1254: 118,908B → 0 주입,
+// 24,024B → 전부 주입). 정확한 예산은 비공개라 확인된 안전선(24,000B)을 코어 합계 상한으로 쓴다.
+
+
+function rulesFiles(pluginRoot) {
+	const dir = join(pluginRoot, "rules");
+	if (!existsSync(dir)) return [];
+	return readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => join(dir, f));
+}
+
+function rulesBudget() {
+ const sessionSource=readFileSync(join(root,'scripts/session_start.mjs'),'utf8');
+ const prefix=sessionSource.split('export function staticPrefix')[1]?.split('export function runtimeContext')[0]??'';
+ const duplicate=prefix.includes('rules/AGENTS.md');
+ add('rules.injection',duplicate?'warn':'ok',duplicate?'rules loader and SessionStart duplicate AGENTS.md':'rules loader only; skills on demand');
+	const files = rulesFiles(root);
+	const sizes = files.map((f) => ({ f, bytes: Buffer.byteLength(readFileSync(f, "utf8"), "utf8") }));
+	const total = sizes.reduce((n, s) => n + s.bytes, 0);
+	const big = sizes.filter((s) => s.bytes > RULES_FILE_WARN_BYTES).map((s) => `${s.f} ${s.bytes}B`);
+	const cwd = resolve(process.cwd());
+	let wsBytes = 0;
+	if (cwd !== resolve(root)) {
+		for (const wf of [join(cwd, "AGENTS.md"), join(cwd, "GEMINI.md")]) {
+			if (existsSync(wf)) wsBytes += Buffer.byteLength(readFileSync(wf, "utf8"), "utf8");
+		}
+	}
+	const wsNote = wsBytes > 0 ? ` + 워크스페이스 ${wsBytes}B` : "";
+	const detail = `${sizes.length}개 규칙 파일 합계 ${total}B (파일당 ≤${RULES_FILE_WARN_BYTES}B, 합계 ≤${RULES_TOTAL_WARN_BYTES}B)${wsNote}`;
+	if (big.length || total > RULES_TOTAL_WARN_BYTES) {
+		add("rules.budget", "warn", `${detail} — 초과: ${big.join(", ") || "합계"}. 예산을 넘은 규칙 파일은 통째로 빠진다(#1254)`);
+		return;
+	}
+	add("rules.budget", "ok", detail);
+}
+
+// agy 1.3.6 이전에는 따옴표 없는 description 에 콜론이 있으면 skill/rule/agent 로딩이 실패했다.
+// 1.3.6 에서 고쳐졌지만 구버전 사용자를 위해 코어 프런트매터를 본다.
+function descriptionColons() {
+	const roots = [root];
+	const bad = [];
+	for (const r of roots) {
+		const targets = [];
+		for (const name of readdirSync(join(r, "skills"))) targets.push(join(r, "skills", name, "SKILL.md"));
+		for (const sub of ["commands", "agents"]) {
+			if (existsSync(join(r, sub))) for (const f of readdirSync(join(r, sub))) if (f.endsWith(".md")) targets.push(join(r, sub, f));
+		}
+		for (const file of targets) {
+			if (!existsSync(file)) continue;
+			const fm = readFileSync(file, "utf8").replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---/);
+			if (!fm) continue;
+			const line = fm[1].split("\n").find((l) => l.startsWith("description:"));
+			if (!line) continue;
+			const value = line.slice("description:".length).trim();
+			if (!/^["'>|]/.test(value) && /:\s/.test(value)) bad.push(file);
+		}
+	}
+	add("frontmatter.description_colon", bad.length ? "warn" : "ok", bad.length ? `따옴표 없는 description 에 콜론 — agy <1.3.6 에서 로딩 실패: ${bad.join(", ")}` : "따옴표 없는 콜론 description 없음");
+}
+
+function discoverLiveLanguageServer({ spawnSync, live, offline, platform, mockJson }) {
+	if (mockJson) {
+		return { mockJson };
+	}
+	// Probing a running Antigravity language server (reads its CSRF token, calls its RPC) is opt-in: `--live` only.
+	if (!live || offline || platform === "win32") return null;
+	const ps = spawnSync("ps", ["-ax", "-o", "pid=,command="], { encoding: "utf8", timeout: 2000 });
+	if (ps.error || ps.status !== 0) return null;
+	for (const line of (ps.stdout || "").split("\n")) {
+		if (!line.includes("language_server") || !line.includes("--csrf_token")) continue;
+		const pidMatch = line.trim().match(/^(\d+)\s+/);
+		const tokenMatch = line.match(/--csrf_token[=\s]+([^\s]+)/);
+		if (!pidMatch || !tokenMatch) continue;
+		const pid = pidMatch[1];
+		const token = tokenMatch[1];
+		const lsof = spawnSync("lsof", ["-Pan", "-p", pid, "-iTCP", "-sTCP:LISTEN"], { encoding: "utf8", timeout: 2000 });
+		if (lsof.error || lsof.status !== 0) continue;
+		const ports = [...(lsof.stdout || "").matchAll(/127\.0\.0\.1:(\d+)/g)].map((m) => m[1]);
+		if (ports.length > 0) return { pid, token, ports };
+	}
+	return null;
+}
+
+export function liveRpcCheck(options = {}) {
+ const settings = { spawnSync, live: process.argv.includes("--live"), offline: process.env.LAZYNEON_OFFLINE === "1", platform: process.platform, mockJson: process.env.LAZYNEON_LS_RPC_MOCK_JSON, ...options };
+ performLiveRpcCheck(settings);
+ return checks.at(-1);
+}
+
+function performLiveRpcCheck(settings) {
+ const { spawnSync } = settings;
+ const info = discoverLiveLanguageServer(settings);
+	if (!info) {
+		add("antigravity.live_rpc", "skip", liveRpcSkipReason(settings.platform, settings.live, settings.offline));
+		return;
+	}
+	let data = null;
+	if (info.mockJson) {
+		try {
+			data = JSON.parse(info.mockJson);
+		} catch (e) {
+			add("antigravity.live_rpc", "fail", `모의 RPC JSON 파싱 실패: ${e.message}`);
+			return;
+		}
+	} else {
+		const safeToken = String(info.token).replace(/["\\]/g, "\\$&");
+		for (const port of info.ports) {
+			const res = spawnSync(
+				"curl",
+				["-sS", "-m", "2", "-X", "POST", `http://127.0.0.1:${port}/exa.language_server_pb.LanguageServerService/GetCustomizationStates`, "-K", "-", "-H", "Content-Type: application/json", "-d", "{}"],
+				{ input: `header = "x-codeium-csrf-token: ${safeToken}"\n`, encoding: "utf8", timeout: 2500 },
+			);
+			if (!res.error && res.status === 0 && res.stdout && res.stdout.trim().startsWith("{")) {
+				try {
+					const parsed = JSON.parse(res.stdout);
+					if (Array.isArray(parsed.states) || Array.isArray(parsed.customizations)) {
+						data = parsed;
+						break;
+					}
+				} catch {
+					// try next port
+				}
+			}
+		}
+	}
+	if (!data) {
+		add("antigravity.live_rpc", "skip", "language_server RPC 응답 없음 (비활성 포트 — 정적 검사만 수행)");
+		return;
+	}
+	const items = Array.isArray(data.states) ? data.states : Array.isArray(data.customizations) ? data.customizations : [];
+	const pluginItems = items.filter((it) => {
+		const s = JSON.stringify(it);
+		return /(?:^|[\/"\\])lazyneon(?:[\/"\\]|$)/.test(s);
+	});
+	if (!pluginItems.length) {
+		add("antigravity.live_rpc", "fail", "live RPC: lazyneon 플러그인 없음");
+		return;
+	}
+	const errored = pluginItems.filter((it) => {
+		const st = String(it.status || it.state || "");
+		return /ERROR|INVALID|FAILED|DISABLED/i.test(st) || Boolean(it.error);
+	});
+	if (errored.length > 0) {
+		const summary = errored.map((it) => `${it.name || it.path || "unknown"}(${it.status || it.error})`).join(", ");
+		add("antigravity.live_rpc", "fail", `실시간 로더 오류 ${errored.length}건: ${summary}`);
+		return;
+	}
+	const unknown = pluginItems.filter(it => !/^(?:STATUS_)?ENABLED$/i.test(String(it.status || it.state || "")));
+	if (unknown.length) {
+		add("antigravity.live_rpc", "warn", `[미확인] lazyneon 상태 미확정: ${unknown.map(it => it.name || it.path || "unknown").join(", ")}`);
+		return;
+	}
+	const enabledCount = items.filter((it) => String(it.status || "").includes("ENABLED")).length;
+	add("antigravity.live_rpc", "ok", `실시간 로더 정상 (전체 ENABLED ${enabledCount}개, lazyneon core ${pluginItems.length}개, 오류 0건)`);
+}
+
+// google-research/harness2 (tree.py, prompts.py):
+// (1) 스킬 폴더가 있어도 라우팅 표/규칙에서 언급되지 않으면 에이전트가 열지 않는 사문(dead weight)이 된다.
+// (2) SKILL.md / rules/*.md 가 호출하는 scripts/<file>.(py|mjs|sh) 가 디스크에 없으면 런타임에 즉시 실패한다.
+function skillsRoutingCoverage() {
+	const extraRoot = process.env.LAZYNEON_TEST_SKILL_ROOT;
+	const targets = [
+		{
+			label: "lazyneon",
+			pluginRoot: extraRoot || root,
+			indexFiles: [join(extraRoot || root, "rules", "AGENTS.md"), join(extraRoot || root, "docs", "keyword-routing.md")],
+		},
+	];
+	const unrouted = [];
+	let totalSkills = 0;
+	for (const t of targets) {
+		const skillsDir = join(t.pluginRoot, "skills");
+		if (!existsSync(skillsDir)) continue;
+		const indexText = t.indexFiles
+			.filter((f) => existsSync(f))
+			.map((f) => readFileSync(f, "utf8"))
+			.join("\n");
+		for (const name of readdirSync(skillsDir)) {
+			const skillMd = join(skillsDir, name, "SKILL.md");
+			if (!existsSync(skillMd)) continue;
+			totalSkills += 1;
+			if (!new RegExp(`(?<![a-zA-Z0-9_-])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-zA-Z0-9_-])`).test(indexText)) {
+				unrouted.push(`${t.label}/${name}`);
+			}
+		}
+	}
+	add(
+		"skills.routing_coverage",
+		unrouted.length ? "fail" : "ok",
+		unrouted.length ? `라우팅 표 미등재(dead-weight) 스킬: ${unrouted.join(", ")}` : `${totalSkills}개 스킬 라우팅 표 등재 확인`,
+	);
+}
+
+function skillsScriptRefs() {
+	const extraRoot = process.env.LAZYNEON_TEST_SKILL_ROOT;
+	const roots = extraRoot ? [extraRoot] : [root];
+	const rx = /(?:python3?|node)\s+(?:-[A-Za-z0-9]+\s+)*["']?((?:\.\/)?(?:skills\/[a-z0-9_-]+\/)?scripts\/[A-Za-z0-9_.-]+\.(?:py|mjs|sh))["']?/g;
+	const missing = [];
+	let checked = 0;
+	for (const r of roots) {
+		const mdFiles = [];
+		const rulesDir = join(r, "rules");
+		if (existsSync(rulesDir)) {
+			for (const f of readdirSync(rulesDir)) if (f.endsWith(".md")) mdFiles.push({ file: join(rulesDir, f), skillDir: null });
+		}
+		const skillsDir = join(r, "skills");
+		if (existsSync(skillsDir)) {
+			for (const name of readdirSync(skillsDir)) {
+				const sdir = join(skillsDir, name);
+				const smd = join(sdir, "SKILL.md");
+				if (existsSync(smd)) mdFiles.push({ file: smd, skillDir: sdir });
+			}
+		}
+		for (const { file, skillDir } of mdFiles) {
+			const text = readFileSync(file, "utf8");
+			for (const m of text.matchAll(rx)) {
+				const rawRel = m[1].replace(/^\.\//, "");
+				if (/^(?:xxx|example|your_|sample)/i.test(rawRel.split("/").pop() || "")) continue;
+				checked += 1;
+				const inPlugin = join(r, rawRel);
+				const inSkill = skillDir ? join(skillDir, rawRel) : null;
+				if (!existsSync(inPlugin) && (!inSkill || !existsSync(inSkill))) {
+					missing.push(`${file}: ${rawRel}`);
+				}
+			}
+		}
+	}
+	add(
+		"skills.script_refs",
+		missing.length ? "fail" : "ok",
+		missing.length ? `존재하지 않는 스크립트 참조: ${missing.join("; ")}` : `${checked}개 스크립트 호출 경로 실존 확인`,
+	);
+}
+
+function skillsSourceReceipts() {
+	const radarScript = join(root, "scripts", "upstream_radar.mjs");
+	const receiptsFile = join(root, "docs", "skill-source-receipts.json");
+	if (!existsSync(radarScript) || !existsSync(receiptsFile)) {
+		add("skills.source_receipts", "warn", "upstream_radar.mjs 또는 docs/skill-source-receipts.json 없음");
+		return;
+	}
+	// --online also confirms every verified pin exists on GitHub (network; slower).
+	const online = process.argv.includes("--online") && process.env.LAZYNEON_OFFLINE !== "1";
+	const res = spawnSync("node", [radarScript, "audit", "--json", ...(online ? ["--remote"] : [])], {
+		cwd: root,
+		encoding: "utf8",
+		timeout: online ? 180000 : 15000,
+	});
+	if (res.error || !res.stdout) {
+		add("skills.source_receipts", "fail", `업스트림 영수증 감사 실패: ${(res.error?.message || res.stderr || "").trim()}`);
+		return;
+	}
+	try {
+		const data = JSON.parse(res.stdout);
+		for (const target of data.skipped_targets || []) add("skills.source_receipts.external", "skip", `${target.path}: ${target.reason}`);
+		add(
+			"skills.source_receipts",
+			data.ok ? "ok" : "fail",
+			data.ok
+				? `${data.source_count}개 업스트림 영수증 (40자 SHA 핀 ${data.pinned_verified}개 / 미확인 ${data.pinned_unverified}개), ${data.verified_targets}개 코어 타겟 실존; 핀 ${data.pin_check}`
+				: `부정확한 핀: ${(data.invalid_sources || []).join(", ") || "없음"}; 누락 타겟: ${(data.missing_targets || []).join(", ") || "없음"}`,
+		);
+	} catch (e) {
+		add("skills.source_receipts", "fail", `영수증 JSON 파싱 실패: ${e.message}`);
+	}
+}
+
+// 느린 검사를 바로 보이게 한다(Windows 에서 '너무 오래 걸린다'는 보고, 2026-11-02).
+if (isMainModule(import.meta.url)) {
+const slow = [];
+for (const fn of [nodeVersion, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
+	const t0 = Date.now();
+	fn();
+	const ms = Date.now() - t0;
+	if (ms >= 1000) slow.push({ check: fn.name, ms });
+}
+
+const args = process.argv.slice(2);
+const strict = args.includes("--strict");
+const failed = checks.filter((c) => c.status === "fail" || (strict && c.status === "warn"));
+const summary = { plugin: pluginProvenance(), ok: failed.length === 0, strict, checks, slow };
+if (args.includes("--json")) {
+	console.log(JSON.stringify(summary, null, 2));
+} else {
+	console.log(provenanceLine(summary.plugin));
+	for (const c of checks) console.log(`[${c.status.padEnd(4)}] ${c.id}: ${c.detail}`);
+	for (const s of slow) console.log(`[slow] ${s.check}: ${s.ms}ms`);
+	console.log(failed.length ? `\nFAIL ${failed.length}개` : `\nFAIL 0개 (ok ${checks.filter(c => c.status === "ok").length} / warn ${checks.filter(c => c.status === "warn").length} / skip ${checks.filter(c => c.status === "skip").length})`);
+}
+process.exit(summary.ok ? 0 : 1);
+
+}

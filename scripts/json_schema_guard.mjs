@@ -1,0 +1,507 @@
+#!/usr/bin/env node
+/**
+ * json_schema_guard.mjs — PostToolUse JSON 구조 및 스키마 무결성 가드 (Feature 07)
+ * GUARD_PACK_VERSION: 1.1.0
+ *
+ * Instructor/Pydantic 스타일의 필드 유효성 검사 및 자가 수정(Self-Correction) 피드백 제공:
+ * - JSON 파싱 무결성 (SyntaxError 원천 차단)
+ * - 고위험 필드(URL, 파일 경로, 날짜 포맷, 필수 필드) 유효성 검사
+ * - FAIL_CLOSED 정책: 검증 실패 시 상세 수정 가이드(blame & repair)를 stderr에 출력하고 exit 1
+ */
+import { isMainModule } from './is-main.mjs';
+import { hookTargets } from './hook_targets.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { stdin } from 'node:process';
+
+const GUARD_PACK_VERSION = '1.1.0';
+
+function readStdin(limitMs = 1500) {
+	return new Promise((resolve) => {
+		if (stdin.isTTY) {
+			resolve('');
+			return;
+		}
+		const chunks = [];
+		let settled = false;
+		const finish = (value) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			try { stdin.pause(); } catch {}
+			stdin.removeAllListeners();
+			resolve(value);
+		};
+		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
+		if (typeof timer.unref === 'function') timer.unref();
+		stdin.on('data', (chunk) => {
+			chunks.push(chunk);
+			const acc = Buffer.concat(chunks).toString('utf8').trim();
+			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
+				try {
+					JSON.parse(acc);
+					finish(acc);
+				} catch {}
+			}
+		});
+		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
+		stdin.on('error', () => finish(''));
+	});
+}
+
+function tryParseJson(text) {
+	if (!text) return undefined;
+	const t = text.trim();
+	if (!t.startsWith('{') && !t.startsWith('[')) return undefined;
+	try {
+		return JSON.parse(t);
+	} catch {
+		return undefined;
+	}
+}
+
+async function collectSources() {
+	const sources = [];
+	const push = (text, label) => {
+		if (text) sources.push({ text, parsed: tryParseJson(text), label });
+	};
+	for (const k of ['ANTIGRAVITY_TOOL_INPUT', 'TOOL_INPUT', 'ANTIGRAVITY_TARGET_FILE', 'TARGET_FILE']) {
+		if (process.env[k]) push(process.env[k], `env:${k}`);
+	}
+	push(await readStdin(1500), 'stdin');
+	for (const arg of process.argv.slice(2)) push(arg, 'argv');
+	return sources;
+}
+
+const TARGET_KEY_RE = /^(file_path|filepath|path|target|target_file|targetfile|target_path|targetpath|output|file|filename)$/i;
+const PATH_LIKE_RE = /([^\s"'`<>|;&]+[\/\\][^\s"'`<>|;&]+\.json)/i;
+const REDIRECT_RE = /(?:>|>>)\s*([^\s|&;]+(?:\.json))/i;
+
+function extractTargetFromNode(node, out) {
+	if (Array.isArray(node)) {
+		for (const item of node) extractTargetFromNode(item, out);
+		return;
+	}
+	if (!node || typeof node !== 'object') return;
+	for (const [key, value] of Object.entries(node)) {
+		if (typeof value === 'string' && value) {
+			if (key === 'Target' && ('Path' in node || 'Replacement' in node)) continue;
+			if (TARGET_KEY_RE.test(key)) out.push({ value, isCommand: false });
+			else if (/^(command|cmd|command_line|commandline|script|args)$/i.test(key)) out.push({ value, isCommand: true });
+		} else if (value && typeof value === 'object') {
+			extractTargetFromNode(value, out);
+		}
+	}
+}
+
+const WRITE_OR_CMD_TOOL_RE = /^(write_to_file|replace_file_content|multi_replace_file_content|run_command|WriteToFile|ReplaceFileContent|MultiReplaceFileContent|RunCommand|write_file|WriteFile|edit_file|EditFile|apply_patch|Write|write|Edit|edit|MultiEdit|multi_edit|multiedit|SearchReplace|search_replace|StrReplace|str_replace|Bash|bash|Shell|shell|execute_command)$/i;
+
+function unquoteTranscriptVal(val) {
+	if (typeof val !== 'string') return val;
+	const t = val.trim();
+	if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+		try {
+			const parsed = JSON.parse(t);
+			if (typeof parsed === 'string') return parsed;
+		} catch {
+			return t.slice(1, -1);
+		}
+	}
+	return val;
+}
+
+function resolveTranscriptPaths(payloadOrPath) {
+	if (typeof payloadOrPath === 'string') {
+		return resolveTranscriptPaths({ transcriptPath: payloadOrPath });
+	}
+	if (!payloadOrPath || typeof payloadOrPath !== 'object') return [];
+	const candidates = [];
+	const add = (p) => {
+		if (typeof p === 'string' && p.trim() && !candidates.includes(p.trim())) {
+			candidates.push(p.trim());
+		}
+	};
+	const tp = payloadOrPath.transcriptPath || payloadOrPath.transcript_path || '';
+	if (typeof tp === 'string' && tp.trim()) {
+		add(tp);
+		if (/transcript\.jsonl$/i.test(tp) && !/transcript_full\.jsonl$/i.test(tp)) {
+			add(tp.replace(/transcript\.jsonl$/i, 'transcript_full.jsonl'));
+		} else if (/transcript_full\.jsonl$/i.test(tp)) {
+			add(tp.replace(/transcript_full\.jsonl$/i, 'transcript.jsonl'));
+		}
+	}
+	const adp = payloadOrPath.artifactDirectoryPath || payloadOrPath.artifact_directory_path || '';
+	if (typeof adp === 'string' && adp.trim()) {
+		add(path.join(adp, '.system_generated', 'logs', 'transcript_full.jsonl'));
+		add(path.join(adp, '.system_generated', 'logs', 'transcript.jsonl'));
+		add(path.join(adp, 'transcript_full.jsonl'));
+		add(path.join(adp, 'transcript.jsonl'));
+	}
+	return candidates.filter((p) => {
+		try {
+			return fs.existsSync(p) && fs.statSync(p).isFile();
+		} catch {
+			return false;
+		}
+	});
+}
+
+function extractToolDataFromCall(tc) {
+	if (!tc || typeof tc !== 'object') return null;
+	const toolName = unquoteTranscriptVal(tc.name || tc.tool_name || tc.toolName || tc.function?.name || '');
+	if (toolName && !WRITE_OR_CMD_TOOL_RE.test(toolName)) return null;
+	let rawArgs = tc.args ?? tc.arguments ?? tc.input ?? tc.parameters ?? tc.function?.arguments ?? tc;
+	if (typeof rawArgs === 'string') {
+		rawArgs = tryParseJson(unquoteTranscriptVal(rawArgs)) ?? tryParseJson(rawArgs);
+	}
+	if (!rawArgs || typeof rawArgs !== 'object') return null;
+
+	const getStr = (...keys) => {
+		for (const k of keys) {
+			if (typeof rawArgs[k] === 'string' && rawArgs[k]) {
+				return unquoteTranscriptVal(rawArgs[k]);
+			}
+		}
+		return '';
+	};
+
+	let targetFile = getStr('Path', 'TargetFile', 'target_file', 'file_path', 'filepath', 'path', 'target_path', 'targetpath', 'output', 'file', 'filename', 'target');
+	const commandLine = getStr('CommandLine', 'command_line', 'command', 'cmd', 'script');
+	let codeContent = getStr('Content', 'CodeContent', 'code_content', 'Replacement', 'ReplacementContent', 'replacement_content', 'replacement', 'content', 'new_string', 'new_str', 'text', 'Target');
+	if (!codeContent && rawArgs.ReplacementChunks !== undefined) {
+		let chunks = rawArgs.ReplacementChunks;
+		if (typeof chunks === 'string') {
+			chunks = tryParseJson(unquoteTranscriptVal(chunks)) ?? tryParseJson(chunks);
+		}
+		if (Array.isArray(chunks)) {
+			codeContent = chunks
+				.map((c) => (c && typeof c === 'object' ? unquoteTranscriptVal(c.ReplacementContent || c.replacement_content || c.Replacement || c.replacement || c.Content || c.content || '') : ''))
+				.filter(Boolean)
+				.join('\n');
+		}
+	}
+	if (!targetFile && commandLine) {
+		const red = commandLine.match(REDIRECT_RE);
+		if (red) targetFile = red[1];
+		else {
+			const m = commandLine.match(PATH_LIKE_RE);
+			if (m) targetFile = m[1];
+		}
+	}
+	if (!targetFile && !commandLine && !codeContent) return null;
+	return { toolName, targetFile, codeContent, commandLine };
+}
+
+const TAIL_FALLBACK_BYTES = 512 * 1024;
+const ANY_REDIRECT_RE = /(?:>|>>)\s*([^\s|&;"'`]+\.[a-z0-9]{1,10})\b/i;
+
+function readTailLines(filePath, maxLines = 50, maxBytes = 32 * 1024) {
+	const stat = fs.statSync(filePath);
+	let text;
+	let complete = true;
+	if (stat.size <= maxBytes) {
+		text = fs.readFileSync(filePath, 'utf8');
+	} else {
+		const fd = fs.openSync(filePath, 'r');
+		try {
+			const buf = Buffer.allocUnsafe(maxBytes);
+			fs.readSync(fd, buf, 0, maxBytes, stat.size - maxBytes);
+			const nlIdx = buf.indexOf(0x0a);
+			complete = nlIdx >= 0 && nlIdx < maxBytes - 1;
+			text = (nlIdx >= 0 ? buf.subarray(nlIdx + 1) : buf).toString('utf8');
+		} finally {
+			fs.closeSync(fd);
+		}
+	}
+	const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+	const hasValidStep = lines.some((l) => {
+		const s = tryParseJson(l);
+		return Boolean(s && (s.tool_calls || s.toolCalls || s.toolCall || s.type === 'PLANNER_RESPONSE'));
+	});
+	if ((!complete || lines.length === 0 || !hasValidStep) && stat.size > maxBytes && maxBytes < TAIL_FALLBACK_BYTES) {
+		return readTailLines(filePath, maxLines, TAIL_FALLBACK_BYTES);
+	}
+	return lines.slice(-maxLines).reverse();
+}
+
+export function extractFromTranscript(payloadOrPath) {
+	const paths = resolveTranscriptPaths(payloadOrPath);
+	const targetStepIdx =
+		payloadOrPath && typeof payloadOrPath === 'object'
+			? typeof payloadOrPath.stepIdx === 'number'
+				? payloadOrPath.stepIdx
+				: typeof payloadOrPath.step_index === 'number'
+					? payloadOrPath.step_index
+					: undefined
+			: undefined;
+
+	for (const tp of paths) {
+		try {
+			const lines = readTailLines(tp, 50);
+			const parsedSteps = [];
+			let hasTruncatedToolCalls = false;
+			for (const line of lines) {
+				const step = tryParseJson(line);
+				if (!step || typeof step !== 'object') continue;
+				if (Array.isArray(step.truncated_fields) && step.truncated_fields.includes('tool_calls')) {
+					hasTruncatedToolCalls = true;
+				}
+				parsedSteps.push({ step, line });
+			}
+			if (hasTruncatedToolCalls && paths.some((p) => p !== tp && /transcript_full\.jsonl$/i.test(p))) {
+				continue;
+			}
+
+			let matchedToolStep = false;
+			const searchSteps = (respectStepIdx) => {
+				for (const { step, line } of parsedSteps) {
+					const stepIdxVal = typeof step.step_index === 'number' ? step.step_index : typeof step.stepIdx === 'number' ? step.stepIdx : undefined;
+					if (respectStepIdx && targetStepIdx !== undefined && stepIdxVal !== undefined && stepIdxVal > targetStepIdx) {
+						continue;
+					}
+					const calls = Array.isArray(step.tool_calls)
+						? step.tool_calls
+						: Array.isArray(step.toolCalls)
+							? step.toolCalls
+							: step.toolCall && typeof step.toolCall === 'object'
+								? [step.toolCall]
+								: [];
+					if (calls.length > 0) {
+						if (respectStepIdx) matchedToolStep = true;
+						if (respectStepIdx && targetStepIdx !== undefined && stepIdxVal !== undefined && targetStepIdx > stepIdxVal) {
+							const callOffset = targetStepIdx - stepIdxVal - 1;
+							if (callOffset >= 0 && callOffset < calls.length) {
+								const data = extractToolDataFromCall(calls[callOffset]);
+								return data && data.targetFile ? data : null;
+							}
+						}
+						for (let i = calls.length - 1; i >= 0; i -= 1) {
+							const data = extractToolDataFromCall(calls[i]);
+							if (data && data.targetFile) return data;
+						}
+						return null;
+					}
+					const directData = extractToolDataFromCall(step);
+					if (directData && directData.targetFile) return directData;
+					if (WRITE_OR_CMD_TOOL_RE.test(line)) {
+						const found = [];
+						extractTargetFromNode(step, found);
+						for (const { value, isCommand } of found) {
+							const u = unquoteTranscriptVal(value);
+							if (!isCommand && u) return { toolName: '', targetFile: u, codeContent: '', commandLine: '' };
+							if (isCommand && u) {
+								const red = u.match(REDIRECT_RE);
+								if (red) return { toolName: 'run_command', targetFile: red[1], codeContent: '', commandLine: u };
+								const m = u.match(PATH_LIKE_RE);
+								if (m) return { toolName: 'run_command', targetFile: m[1], codeContent: '', commandLine: u };
+							}
+						}
+					}
+				}
+				return null;
+			};
+
+			const hit = searchSteps(true) || (!matchedToolStep && targetStepIdx !== undefined ? searchSteps(false) : null);
+			if (hit) return hit;
+		} catch {
+			// continue to next candidate
+		}
+	}
+	return null;
+}
+
+function extractTargetFromTranscript(payloadOrPath) {
+	const data = extractFromTranscript(payloadOrPath);
+	return data ? data.targetFile : '';
+}
+
+export function extractTarget(sourcesOrPayload) {
+	const env = process.env.ANTIGRAVITY_TARGET_FILE || process.env.TARGET_FILE || '';
+	if (env) return env;
+	const sources = Array.isArray(sourcesOrPayload)
+		? sourcesOrPayload
+		: sourcesOrPayload && typeof sourcesOrPayload === 'object'
+			? [{ text: '', parsed: sourcesOrPayload, label: 'payload' }]
+			: [];
+	for (const s of sources) {
+		if (s.parsed === undefined) continue;
+		const found = [];
+		extractTargetFromNode(s.parsed, found);
+		for (const { value, isCommand } of found) {
+			const u = unquoteTranscriptVal(value);
+			if (!isCommand && u) return u;
+			if (isCommand && u) {
+				const red = u.match(REDIRECT_RE) || u.match(ANY_REDIRECT_RE);
+				if (red) return red[1];
+				const m = u.match(PATH_LIKE_RE);
+				if (m) return m[1];
+			}
+		}
+	}
+	for (const s of sources) {
+		if (s.parsed !== undefined) continue;
+		const red = s.text.match(REDIRECT_RE) || s.text.match(ANY_REDIRECT_RE);
+		if (red) return red[1];
+		const m = s.text.match(PATH_LIKE_RE);
+		if (m) return m[1];
+	}
+	for (const s of sources) {
+		if (s.parsed && typeof s.parsed === 'object' && (s.parsed.transcriptPath || s.parsed.transcript_path || s.parsed.artifactDirectoryPath || s.parsed.artifact_directory_path)) {
+			const fromTranscript = extractTargetFromTranscript(s.parsed);
+			if (fromTranscript) return fromTranscript;
+		}
+	}
+	return '';
+}
+
+export function validateJsonObject(obj, pathPrefix = '$') {
+	const violations = [];
+
+	if (obj === null || typeof obj !== 'object') {
+		return violations;
+	}
+
+	for (const [index, [key, val]] of Object.entries(obj).entries()) {
+		const currentPath = `${pathPrefix}[${index}]`;
+
+		// URL Validation
+		if (/^(url|uri|homepage|repository|endpoint)$/i.test(key) && typeof val === 'string') {
+			const trimmed = val.trim();
+			if (trimmed.length > 0) {
+				const hasProtocol = /^(https?|git\+https?|git\+ssh|ssh|git|file|wss?):\/\//i.test(trimmed);
+				const isRepoShorthand =
+					/^repository$/i.test(key) &&
+					(/^(?:github|gitlab|bitbucket|gist):\S+$/i.test(trimmed) || /^(?:git@[\w.-]+:)?[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(?:\.git)?$/.test(trimmed));
+				const isRelativeEndpoint = /^endpoint$/i.test(key) && /^\/\S*$/.test(trimmed);
+				if (!hasProtocol && !isRepoShorthand && !isRelativeEndpoint) {
+					violations.push({
+						field: currentPath,
+						rule: 'valid_url_protocol',
+						message: `URL must have a valid protocol (http, https, file, ws), repository shorthand (github:...), or relative endpoint (/...)`
+					});
+				}
+			}
+		}
+
+		// ISO Date Validation
+		if (/^(date|timestamp|created_at|updated_at)$/i.test(key) && typeof val === 'string') {
+			if (val.trim().length > 0 && Number.isNaN(Date.parse(val))) {
+				violations.push({
+					field: currentPath,
+					rule: 'valid_iso_date',
+					message: `Date is not a valid parseable date string`
+				});
+			}
+		}
+
+		// Version semantic format
+		if (/^version$/i.test(key) && typeof val === 'string') {
+			const trimmed = val.trim();
+			const validVersionRe =
+				/^(?:v?\d+(?:\.\d+){0,2}(?:-[a-zA-Z0-9_.-]+)?(?:\+[a-zA-Z0-9_.-]+)?|workspace:\S+|latest|next|beta|alpha|canary|rc|nightly|\*|[\^~>=<]+\s*v?\d+(?:\.\d+){0,2}(?:-[a-zA-Z0-9_.-]+)?)$/i;
+			if (trimmed.length > 0 && !validVersionRe.test(trimmed)) {
+				violations.push({
+					field: currentPath,
+					rule: 'valid_semver',
+					message: `Version does not match SemVer (e.g. 1.0.0, v1, workspace:*, latest) or YYYY.MM format (e.g. 2026.09)`
+				});
+			}
+		}
+
+		// Recursion
+		if (val && typeof val === 'object') {
+			violations.push(...validateJsonObject(val, currentPath));
+		}
+	}
+
+	return violations;
+}
+
+export function checkJsonFile(filePath) {
+	if (!fs.existsSync(filePath)) {
+		return { ok: false, error: 'File does not exist' };
+	}
+
+	let content;
+	try {
+		content = fs.readFileSync(filePath, 'utf8');
+	} catch (err) {
+		return { ok: false, error: 'Could not read file' };
+	}
+
+	if (!content.trim()) {
+		return { ok: false, error: 'Empty JSON file', violations: [{ field: '$', rule: 'non_empty', message: 'File is empty' }] };
+	}
+
+	let parsed;
+	try {
+		parsed = JSON.parse(content);
+	} catch (err) {
+		return {
+			ok: false,
+			error: 'Malformed JSON Syntax',
+			violations: [{ field: '$', rule: 'syntax_error', message: 'Invalid JSON syntax' }]
+		};
+	}
+
+	const violations = validateJsonObject(parsed);
+	if (violations.length > 0) {
+		return { ok: false, error: 'Schema validation failed', violations };
+	}
+
+	return { ok: true, parsed };
+}
+
+async function main() {
+	if (process.argv.includes('--check')) {
+		const files = process.argv.slice(process.argv.indexOf('--check') + 1);
+		let hasFailure = false;
+		for (const f of files) {
+			const res = checkJsonFile(path.resolve(f));
+			if (!res.ok) {
+				console.error(`[JSON SCHEMA GUARD] FAIL ${JSON.stringify(f.slice(0,240))}: ${res.error}`);
+				for (const v of res.violations || []) {
+					console.error(`  - ${v.field}: ${v.message}`);
+				}
+				hasFailure = true;
+			}
+		}
+		process.exit(hasFailure ? 1 : 0);
+	}
+
+	const sources = await collectSources();
+	const targets = hookTargets(sources, { contentOnly: true });
+	// Legacy transcript-only hosts still provide explicit tool calls. Reparse command
+	// semantics rather than trusting the old first-path fallback in transcript data.
+	if (!targets.length && !sources.some(s => s.parsed?.toolCall || s.parsed?.tool_name)) {
+		for (const source of sources) {
+			const data = source.parsed && extractFromTranscript(source.parsed);
+			if (!data) continue;
+			const args = data.commandLine ? {command:data.commandLine} : {path:data.targetFile};
+			targets.push(...hookTargets([{parsed:{...source.parsed,toolCall:{name:data.toolName,args}}}], {contentOnly:true}));
+		}
+	}
+	let failed = false;
+	for (const target of targets.filter(t => /\.json$/i.test(t))) {
+		const res = checkJsonFile(target);
+		if (!res.ok) {
+			failed = true;
+			console.error(`[JSON SCHEMA GUARD v${GUARD_PACK_VERSION}] PostToolUse Schema Validation FAIL: ${JSON.stringify(target.slice(0,240))}\nError: ${res.error}`);
+			for (const v of res.violations || []) console.error(`  Field [${v.field}] (${v.rule}): ${v.message}`);
+			console.error('Action Required: Correct the schema violations and rewrite the JSON file before proceeding.');
+		}
+	}
+	if (failed) process.exit(1);
+	process.stdout.write('{}\n');
+	process.exit(0);
+}
+
+import { fileURLToPath } from 'node:url';
+
+if (isMainModule(import.meta.url)) {
+	main().catch((err) => {
+		console.error(`[JSON SCHEMA GUARD] Error: guard_internal_error`);
+		process.stdout.write('{}\n');
+		process.exit(0);
+	});
+}

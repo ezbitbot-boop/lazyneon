@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+/**
+ * bin/lazyneon — LazyNeon CLI entrypoint (active tools only).
+ *   lazyneon doctor [--json] [--strict]
+ *   lazyneon radar <audit|list|poll> [--json] [--remote] [--write]
+ *   lazyneon codegraph <build|handoff|tests> ...
+ *   lazyneon lsp <check|snapshot|verify|rename-preview> ...
+ * The v2.0 "apex" engines (dag, memory, rag, tui, slop, calibrate, autoresearch) were removed on 2026-11-15 after two weeks unused in quarantine.
+ */
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+const ROUTES = {
+	update: "update.mjs",
+	doctor: "doctor.mjs",
+	radar: "upstream_radar.mjs",
+	upstream: "upstream_radar.mjs",
+	codegraph: "codegraph.mjs",
+	lsp: "lsp_diagnostics.mjs",
+};
+
+const [sub = "doctor", ...forwarded] = process.argv.slice(2);
+const script = Object.hasOwn(ROUTES, sub) ? ROUTES[sub] : undefined;
+
+if (!script) {
+	console.error(`Unknown lazyneon subcommand: ${sub}. Valid subcommands: ${Object.keys(ROUTES).join(", ")}`);
+	process.exit(2);
+}
+
+const res = spawnSync(process.execPath, [join(root, "scripts", script), ...forwarded], {
+	stdio: "inherit",
+	cwd: process.cwd(),
+});
+
+process.exit(res.status ?? 1);

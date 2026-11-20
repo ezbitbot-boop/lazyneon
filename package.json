@@ -1,0 +1,20 @@
+{
+  "name": "lazyneon",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lazyneon": "./bin/lazyneon"
+  },
+  "description": "Antigravity plugin: /ulw autonomous workflow, budgeted subagent fan-out, engineering and design skills, GF-QA verification.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "test:first": "node --test test/first-verification.test.mjs test/r10-core.test.mjs test/r9-core.test.mjs test/r11-core.test.mjs",
+    "test:prod": "node --test test/diagram_templates.test.mjs test/doctor.test.mjs test/gates_and_stats.test.mjs test/hooks-guards.test.mjs test/hooks.test.mjs test/session_start.test.mjs",
+    "doctor": "node scripts/doctor.mjs"
+  },
+  "license": "MIT"
+}

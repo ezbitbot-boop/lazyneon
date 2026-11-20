@@ -1,0 +1,107 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SCRIPT = path.join(ROOT, "scripts", "session_start.mjs");
+const CORE_SCRIPT = SCRIPT;
+
+const ctxOf = (out) => out.injectSteps[0].systemMessage.systemMessage;
+
+function run(payload, cwd, env = {}, scriptPath = SCRIPT, extraArgs = []) {
+	const e = { ...process.env, LAZYNEON_NO_AUTO_UPDATE: "1", ...env };
+	delete e.ANTIGRAVITY_MODEL_NAME;
+	delete e.ANTIGRAVITY_MODEL;
+	return spawnSync("node", [scriptPath, ...extraArgs], { cwd, input: payload, encoding: "utf8", env: e });
+}
+
+test("#given host modelName #when session starts #then runtime block quotes it and is valid JSON", () => {
+	const res = run(JSON.stringify({ hook_event_name: "SessionStart", modelName: "gemini-4-argon" }), ROOT);
+	assert.equal(res.status, 0, res.stderr);
+	const out = JSON.parse(res.stdout);
+	assert.match(ctxOf(out), /세션 모델: gemini-4-argon/);
+	assert.deepEqual(Object.keys(out), ["injectSteps"], "Antigravity ignores SessionStart output with extra keys");
+	assert.doesNotMatch(ctxOf(out), /Argon이라고 가정하지 말 것/);
+});
+
+test("#given no model in payload #when session starts #then model is unknown, never inferred", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-nosession-"));
+	try {
+		const res = run("{}", tmp);
+		assert.equal(res.status, 0, res.stderr);
+		const out = JSON.parse(res.stdout);
+		assert.match(ctxOf(out), /세션 모델: unknown/);
+		assert.match(ctxOf(out), /범위 잠금 \(\.lazyneon\/ulw-scope\.md\)\n\n없음/);
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+});
+
+test("#given workspacePaths: [tmpDir] #when session_start.mjs runs from unrelated cwd #then resolves .lazyneon from workspacePaths[0]", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-wspaths-"));
+	try {
+		fs.mkdirSync(path.join(tmp, ".lazyneon"), { recursive: true });
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "ulw-scope.md"), "목표: workspacePaths 우선 해석\n완료 조건: 테스트 통과\n", "utf8");
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "pins.md"), "- ws_pin: deadbeef1234\n", "utf8");
+		const payload = JSON.stringify({ hook_event_name: "SessionStart", modelName: "gemini-4-argon", workspacePaths: [tmp] });
+		const res = run(payload, os.tmpdir());
+		assert.equal(res.status, 0, res.stderr);
+		const out = JSON.parse(res.stdout);
+		assert.match(ctxOf(out), /목표: workspacePaths 우선 해석/);
+		assert.match(ctxOf(out), /- ws_pin: deadbeef1234/);
+		assert.ok(ctxOf(out).includes(tmp));
+		{
+			const wsRes = run(payload, os.tmpdir(), {}, CORE_SCRIPT);
+			assert.equal(wsRes.status, 0, wsRes.stderr);
+			const wsOut = JSON.parse(wsRes.stdout);
+			assert.match(ctxOf(wsOut), /목표: workspacePaths 우선 해석/);
+			assert.ok(Buffer.byteLength(ctxOf(wsOut).split("## LazyNeon 런타임")[1], "utf8") < 2048, "dynamic runtime stays compact after the stable rules/skill prefix");
+		}
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+});
+
+test("#given .lazyneon/ulw-scope.md in cwd #when session starts #then scope lock head is injected", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-scope-"));
+	try {
+		fs.mkdirSync(path.join(tmp, ".lazyneon"));
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "ulw-scope.md"), "목표: 훅 테스트\n완료 조건: node --test\n범위: scripts/\n예산: 4 레인 / 2 웨이브\n", "utf8");
+		const pins = Array.from({ length: 25 }, (_, i) => `- id${i}: ${"a".repeat(8)}${i}`).join("\n");
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "pins.md"), `${pins}\n`, "utf8");
+		const res = run("{}", tmp);
+		assert.equal(res.status, 0, res.stderr);
+		const out = JSON.parse(res.stdout);
+		assert.match(ctxOf(out), /목표: 훅 테스트/);
+		assert.match(ctxOf(out), /예산: 4 레인/);
+		assert.match(ctxOf(out), /고정 식별자 \(\.lazyneon\/pins\.md/);
+		assert.match(ctxOf(out), /- id24: a{8}24/);
+		assert.match(ctxOf(out), /- id5: a{8}5/);
+		assert.doesNotMatch(ctxOf(out), /- id4:/);
+		assert.match(ctxOf(out), /5줄 생략 — 파일을 직접 읽을 것/);
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+});
+
+test("#given CORE_SCRIPT --minimal with adjacent lazyneon #when session starts #then keeps core scope without domain injection", () => {
+	assert.ok(fs.existsSync(CORE_SCRIPT));
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-wsmin-"));
+	try {
+		fs.mkdirSync(path.join(tmp, ".lazyneon"), { recursive: true });
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "ulw-scope.md"), "목표: 중복 범위 주입 생략 확인\n완료 조건: 테스트 통과\n", "utf8");
+		fs.writeFileSync(path.join(tmp, ".lazyneon", "pins.md"), "- ws_pin: deadbeef1234\n", "utf8");
+		const payload = JSON.stringify({ hook_event_name: "SessionStart", modelName: "gemini-4-carbon-medium", workspacePaths: [tmp] });
+		const wsRes = run(payload, os.tmpdir(), {}, CORE_SCRIPT, ["--minimal"]);
+		assert.equal(wsRes.status, 0, wsRes.stderr);
+		const wsOut = JSON.parse(wsRes.stdout);
+		assert.doesNotMatch(ctxOf(wsOut), /korean_law:/);
+		assert.match(ctxOf(wsOut), /목표:/);
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+});

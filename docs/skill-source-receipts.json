@@ -1,0 +1,465 @@
+{
+  "schema": "skill_source_closure_audit/v1",
+  "version": "2.0.0",
+  "updated_at": "2026-11-15T07:10:58.000Z",
+  "sources": [
+    {
+      "repo": "rlaope/oh-my-hermes",
+      "url": "https://github.com/rlaope/oh-my-hermes",
+      "pinned_sha": null,
+      "keyword": "OMH / oh-my-hermes",
+      "mapped_targets": [
+        "scripts/upstream_radar.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "b906cb4258fdbf084fd9b2853d47dd97c7d6d978",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "NousResearch/hermes-agent",
+      "url": "https://github.com/NousResearch/hermes-agent",
+      "pinned_sha": "63d0b94120027d487c9a5235b9ec64b696af1b26",
+      "keyword": "Hermes-Agent base",
+      "mapped_targets": [
+        "scripts/doctor.mjs",
+        "scripts/session_start.mjs"
+      ],
+      "status": "verified",
+      "observed_head_sha": "2d2808ee84549f9836b0056750265058e5488a8a",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "can1357/oh-my-pi",
+      "url": "https://github.com/can1357/oh-my-pi",
+      "pinned_sha": null,
+      "keyword": "omp LSP & DAP",
+      "mapped_targets": [
+        "scripts/lsp_diagnostics.mjs",
+        "skills/debugging/references/dap-session-plan.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "95db18ef9936bff96fbd33268b2363ab25a9bb9d",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "michael-denyer/pstack-claude",
+      "url": "https://github.com/michael-denyer/pstack-claude",
+      "pinned_sha": "a12b04786023e762f12f5de7bb5fafb8c23f8c36",
+      "keyword": "poteto pstack & skills",
+      "mapped_targets": [
+        "skills/create-verification-skill/SKILL.md",
+        "skills/encode-lessons/SKILL.md",
+        "skills/no-comments/SKILL.md",
+        "skills/programming/references/formal-verify.md"
+      ],
+      "status": "verified",
+      "observed_head_sha": "22b5e137e945cb65dd29dac5fc703c13d83a00aa",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "skill_original",
+      "license": "MIT",
+      "note": "pstack (Lauren Tan): no-comments, encode-lessons (two principles merged), create-verification-skill ported for Antigravity on 2026-11-16"
+    },
+    {
+      "repo": "faxenoff/ultracode",
+      "url": "https://github.com/faxenoff/ultracode",
+      "pinned_sha": null,
+      "keyword": "ultracode graph engineering",
+      "mapped_targets": [
+        "scripts/codegraph.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "58d6126fc11ecc0fc9615a4c7d0ba1e149f91042",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "revfactory/showreel",
+      "url": "https://github.com/revfactory/showreel",
+      "pinned_sha": "64521220a2f8e91cb9894400c48c15b7f45205d6",
+      "keyword": "videogen / showreel",
+      "mapped_targets": [
+        {
+          "path": "../lazyneon-workspace/experimental/video-editor/references/showreel-videogen.md",
+          "scope": "external"
+        }
+      ],
+      "status": "verified",
+      "observed_head_sha": "ae09a4a757b6e1d22c4193a09c70c88bda5b3e92",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "code-yeongyu/oh-my-openagent",
+      "url": "https://github.com/code-yeongyu/oh-my-openagent",
+      "pinned_sha": "3a5891d18cb512c7996ae1160ae67c70427f4a57",
+      "keyword": "OmO",
+      "mapped_targets": [
+        "skills/ast-grep/SKILL.md",
+        "skills/coding-agent-sessions/SKILL.md",
+        "skills/data-scientist/SKILL.md",
+        "skills/debugging/SKILL.md",
+        "skills/frontend/SKILL.md",
+        "skills/git-master/SKILL.md",
+        "skills/programming/SKILL.md",
+        "skills/refactor/SKILL.md",
+        "skills/remove-ai-slops/SKILL.md",
+        "skills/visual-qa/SKILL.md",
+        "skills/ulw-research/SKILL.md",
+        "skills/ulw/SKILL.md",
+        "scripts/stop_claim_guard.mjs"
+      ],
+      "status": "verified",
+      "observed_head_sha": "12bc5cfc37d2cc590441d7d31fba809adc510531",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "skill_original",
+      "license": "SUL-1.0 / see upstream LICENSE.md",
+      "note": "packages/shared-skills/skills: ten skills three-way merged to this commit on 2026-11-15; ulw and ulw-research are our own rewrites that diverged from upstream ulw-plan/ulw-execute/ulw-research"
+    },
+    {
+      "repo": "obra/superpowers",
+      "url": "https://github.com/obra/superpowers",
+      "pinned_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "keyword": "superpowers",
+      "mapped_targets": [
+        "skills/debugging/SKILL.md",
+        "skills/debugging/references/dap-session-plan.md"
+      ],
+      "status": "verified",
+      "observed_head_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "garrytan/gstack",
+      "url": "https://github.com/garrytan/gstack",
+      "pinned_sha": null,
+      "keyword": "gstack",
+      "mapped_targets": [
+        "skills/ulw/references/gstack-gates.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "11c17d466af329ee0a27654f353b84d5484d503b",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "deepseek-ai/deepseek-harness",
+      "url": "https://github.com/deepseek-ai/deepseek-harness",
+      "pinned_sha": null,
+      "keyword": "deepseek-harness",
+      "mapped_targets": [
+        "rules/AGENTS.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "ce7073d51254c26cd63b22a60835b8f948deb447",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "google-research/harness2",
+      "url": "https://github.com/google-research/harness2",
+      "pinned_sha": null,
+      "keyword": "harness2",
+      "mapped_targets": [
+        "scripts/doctor.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "1cfe254e8d25b15f37048c3730134686abe60335",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "anthropics/claude-code",
+      "url": "https://github.com/anthropics/claude-code",
+      "pinned_sha": null,
+      "keyword": "Claude Code Hook & Subagent Harness",
+      "mapped_targets": [
+        "hooks.json",
+        "scripts/session_start.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "b3f291d131924810e2b7713ededc144843a229d5",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "openai/codex",
+      "url": "https://github.com/openai/codex",
+      "pinned_sha": null,
+      "keyword": "OpenAI Codex CLI Sandbox Harness",
+      "mapped_targets": [
+        "skills/programming/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "a9e474c8fc7874cdb13b03ef8ffec0bead7c4fbd",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "google-gemini/gemini-cli",
+      "url": "https://github.com/google-gemini/gemini-cli",
+      "pinned_sha": null,
+      "keyword": "Gemini CLI Agent Runtime",
+      "mapped_targets": [
+        "rules/AGENTS.md",
+        "scripts/doctor.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "b633c0703417eff3f6db8b684515e2b26a824e82",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "anomalyco/opencode",
+      "url": "https://github.com/anomalyco/opencode",
+      "pinned_sha": null,
+      "keyword": "OpenCode TUI & LSP Harness",
+      "mapped_targets": [
+        "scripts/lsp_diagnostics.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "6b4329c88579c5b100620c8e72e8ca97b1baf3d0",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "Aider-AI/aider",
+      "url": "https://github.com/Aider-AI/aider",
+      "pinned_sha": null,
+      "keyword": "Aider RepoMap PageRank Harness",
+      "mapped_targets": [
+        "scripts/codegraph.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "OpenHands/OpenHands",
+      "url": "https://github.com/OpenHands/OpenHands",
+      "pinned_sha": null,
+      "keyword": "OpenHands Runtime Verification",
+      "mapped_targets": [
+        "skills/gf-qa-behavioral-verification/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "940dc61587e31f2625d6a59e07d70340878031d2",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "SWE-agent/SWE-agent",
+      "url": "https://github.com/SWE-agent/SWE-agent",
+      "pinned_sha": null,
+      "keyword": "SWE-agent ACI Debugging",
+      "mapped_targets": [
+        "skills/debugging/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "cline/cline",
+      "url": "https://github.com/cline/cline",
+      "pinned_sha": null,
+      "keyword": "Cline Plan/Act & Browser QA",
+      "mapped_targets": [
+        "skills/visual-qa/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "a47448718ad77e6316b12d81927fc1373ade1243",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "firecrawl/firecrawl",
+      "url": "https://github.com/firecrawl/firecrawl",
+      "pinned_sha": null,
+      "keyword": "Firecrawl Web Evidence & Deep Research",
+      "mapped_targets": [
+        "skills/ulw-research/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "273412baa50cdec4cd022740a3191593fbc2a322",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "ast-grep/ast-grep",
+      "url": "https://github.com/ast-grep/ast-grep",
+      "pinned_sha": null,
+      "keyword": "ast-grep Structural Codemod",
+      "mapped_targets": [
+        "skills/ast-grep/SKILL.md"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "72f150994f2f5ffe52fd6d1e72f18a93c3998e0e",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "biomejs/biome",
+      "url": "https://github.com/biomejs/biome",
+      "pinned_sha": null,
+      "keyword": "Biome Fast Lint & Format Guard",
+      "mapped_targets": [
+        "skills/programming/SKILL.md",
+        "scripts/lsp_diagnostics.mjs"
+      ],
+      "status": "unverified",
+      "observed_head_sha": "397b0eb28ca9d5a5eadc552d0a81b45540611d79",
+      "observed_at": "2026-10-30T13:46:46.993Z",
+      "kind": "inspiration"
+    },
+    {
+      "repo": "LilMGenius/paperthin",
+      "url": "https://github.com/LilMGenius/paperthin",
+      "pinned_sha": "c2ee8762b12a9954bddaa3530c0afad62a7ea5aa",
+      "keyword": "paperthin (MIT): hate, shower, factchk, mandela, dedot",
+      "mapped_targets": [
+        "skills/hate/SKILL.md",
+        "skills/shower/SKILL.md",
+        "skills/factchk/SKILL.md",
+        "skills/mandela/SKILL.md",
+        "skills/dedot/SKILL.md",
+        "NOTICE"
+      ],
+      "status": "verified",
+      "observed_head_sha": "1306ea4a2c038b5dee508db23197b3a19ccfbdfc",
+      "observed_at": "2026-11-09T14:07:41.000Z",
+      "kind": "skill_original",
+      "license": "MIT",
+      "note": "skills/depth/<name>; no upstream change to these five since our copy (checked 2026-11-15)"
+    },
+    {
+      "repo": "cathrynlavery/diagram-design",
+      "url": "https://github.com/cathrynlavery/diagram-design",
+      "pinned_sha": "f6db0decea96de66b901331a0f79a8d4b147ebae",
+      "keyword": "diagram-design",
+      "mapped_targets": [
+        "skills/diagram-design/SKILL.md"
+      ],
+      "status": "verified",
+      "kind": "skill_original",
+      "license": "MIT",
+      "note": "synced to upstream 2.6.164 on 2026-11-15; three Argon anti-pattern rows kept; repo-level checker scripts copied into skills/diagram-design/scripts"
+    },
+    {
+      "repo": "kaankiziltug/logo-design-skill",
+      "url": "https://github.com/kaankiziltug/logo-design-skill",
+      "pinned_sha": "e9eaddc07895575253d6663320354a708f53e955",
+      "keyword": "logo-design",
+      "mapped_targets": [
+        "skills/logo-design/SKILL.md"
+      ],
+      "status": "verified",
+      "kind": "skill_original",
+      "license": "MIT",
+      "note": "skills/logo-design"
+    },
+    {
+      "repo": "nexu-io/open-design",
+      "url": "https://github.com/nexu-io/open-design",
+      "pinned_sha": "6afe7eae156bfa29251a51fd0636649c257f7444",
+      "keyword": "open-design brand DESIGN.md references",
+      "mapped_targets": [
+        "skills/frontend/ATTRIBUTION.md"
+      ],
+      "status": "verified",
+      "kind": "skill_original",
+      "license": "Apache-2.0",
+      "note": "frontend/references/design/<brand>.md, see skills/frontend/ATTRIBUTION.md"
+    },
+    {
+      "repo": "fivetaku/insane-research",
+      "url": "https://github.com/fivetaku/insane-research",
+      "pinned_sha": "8f92b33d5d806a5437cc9e9d2e8b795ecc421315",
+      "keyword": "insane-research claim gate",
+      "mapped_targets": [
+        "skills/ulw-research/ATTRIBUTION.md",
+        "skills/ulw-research/scripts/claims-gate.mjs"
+      ],
+      "status": "verified",
+      "kind": "inspiration",
+      "license": "MIT",
+      "note": "ideas and gate rules only, no code copied"
+    },
+    {
+      "repo": "yunshenwuchuxun/latex-paper-skills",
+      "url": "https://github.com/yunshenwuchuxun/latex-paper-skills",
+      "pinned_sha": "d0f106108cb09e448604a56ce973d35b340cf497",
+      "keyword": "latex-paper-skills",
+      "mapped_targets": [
+        "skills/ulw-research/references/latex-report.md"
+      ],
+      "status": "verified",
+      "kind": "inspiration",
+      "license": "MIT",
+      "note": "ideas only"
+    },
+    {
+      "repo": "ndpvt-web/latex-document-skill",
+      "url": "https://github.com/ndpvt-web/latex-document-skill",
+      "pinned_sha": "54279f78ecd9e232ffb7ac4b5453bc8b76bbe49b",
+      "keyword": "latex-document-skill",
+      "mapped_targets": [
+        "skills/ulw-research/references/latex-report.md"
+      ],
+      "status": "verified",
+      "kind": "inspiration",
+      "license": "none declared",
+      "note": "ideas only"
+    },
+    {
+      "repo": "epoko77-ai/im-not-ai",
+      "url": "https://github.com/epoko77-ai/im-not-ai",
+      "pinned_sha": "80fae0ca391bd2a573173f34e72511954e700008",
+      "keyword": "humanize-korean",
+      "mapped_targets": [
+        {
+          "path": "../lazyneon-workspace/skills/humanize-korean/SKILL.md",
+          "scope": "external"
+        }
+      ],
+      "status": "verified",
+      "kind": "skill_original",
+      "license": "MIT",
+      "note": "skills/humanize-korean v2.4.2 plus its pipeline scripts (was misattributed to blader/humanizer before 2026-11-15)"
+    },
+    {
+      "repo": "Marker-Inc-Korea/ko-pii",
+      "url": "https://github.com/Marker-Inc-Korea/ko-pii",
+      "pinned_sha": "8957e8bc9f0ade3d21381734523b18920330c159",
+      "keyword": "ko-pii",
+      "mapped_targets": [
+        {
+          "path": "../lazyneon-workspace/skills/korean-pii-masker/SKILL.md",
+          "scope": "external"
+        }
+      ],
+      "status": "verified",
+      "kind": "inspiration",
+      "license": "MIT",
+      "note": "reference only"
+    },
+    {
+      "repo": "fivetaku/insane-search",
+      "url": "https://github.com/fivetaku/insane-search",
+      "pinned_sha": "82211894339e45e7e848c54d47ef4743460bd5df",
+      "keyword": "insane-search engine",
+      "mapped_targets": [
+        "skills/ulw-research/scripts/fetch-guard.mjs"
+      ],
+      "status": "verified",
+      "kind": "inspiration",
+      "license": "MIT",
+      "note": "internal-address and injection-signal rules adapted; the engine is called, not bundled, only with --allow-bypass"
+    }
+  ]
+}

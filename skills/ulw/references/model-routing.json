@@ -1,0 +1,522 @@
+{
+	"version": "2026-11-20-neon",
+	"status": "[미측정] Google 공식 Neon orchestration + Hydrogen workers; pass rates unmeasured. Argon removed on owner request 2026-11-20.",
+	"selection_rule": "Maximize pass rate first. Among arms tied for the best pass rate within sampling noise, pick the fewest tokens and quota, then the fastest. Never trade pass rate for savings.",
+	"common_rule": "코드·문서·증거에 대한 주장마다 파일:줄(또는 해시·오프셋) 근거를 붙인다. 배율·건수·합계·diff 통계·오류 메시지 같은 구체 값은 실행한 명령 출력에서만 적고, 확인하지 못했으면 '추정'이라고 표시한다.",
+	"common_rule_source": "false-claims-1115: 5,251 claims, repeats were invented run commands (3), comments trusted over code (2), unexecuted numbers (3)",
+	"how_to_revise": "Edit this file only. /ulw reads it at the start of a task; no code or rules change needed. Record the evidence in docs/model-routing.md.",
+	"subagent_tiers": {
+		"pro": "gemini-4-neon",
+		"flash": "gemini-4-hydrogen",
+		"inherit": "session model",
+		"flash_lite": "emergency quota fallback"
+	},
+	"roles": {
+		"default": {
+			"model": "gemini-4-neon-high",
+			"note": "[미측정] Google 출시 글의 고판단 Orchestrator 권고 기반. 기본 high 배정; 성능 실측 전.",
+			"fallback": "gemini-4-neon-medium",
+			"recommended_level": "high"
+		},
+		"plan": {
+			"model": "gemini-4-neon-high",
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"fallback": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"recommended_level": "high"
+		},
+		"final_review": {
+			"model": "gemini-4-neon-high",
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"fallback": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"recommended_level": "high"
+		},
+		"long_context": {
+			"model": "gemini-4-neon-high",
+			"min_context_tokens": null,
+			"fallback": "gemini-4-carbon-high",
+			"timeout_sec": null,
+			"note": "[미측정] unified input/output reserve and host evidence determine checkpoints; no automatic latency fallback.",
+			"recommended_level": "high",
+			"context_policy": {
+				"unified_limit_tokens": 1048576,
+				"strategy": "chunk_with_output_reserve",
+				"fallback_condition": "last-resort only after Neon chunking is unavailable or fails; never automatic on timeout",
+				"cost_note": "Carbon 가격 2026-12-01부터 2배; 작업별 비용 [미측정]"
+			}
+		},
+		"security_audit": {
+			"model": "gemini-4-neon-high",
+			"prompt": "v2 flag/fail rule required: skills/ulw/references/sensitive-check-v2.md",
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"fallback": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"recommended_level": "high"
+		},
+		"verdict_review": {
+			"model": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"fallback": "gemini-4-neon-high",
+			"recommended_level": "high"
+		},
+		"implementation": {
+			"model": "gemini-4-neon-high",
+			"note": "[미측정] Google 출시 글의 고판단 Orchestrator 권고 기반. 기본 high 배정; 성능 실측 전.",
+			"fallback": "gemini-4-neon-medium",
+			"recommended_level": "high"
+		},
+		"long_execution": {
+			"model": "gemini-4-hydrogen-high",
+			"note": "[미측정] Neon plans/verifies; Hydrogen execution workers only, never a gate.",
+			"recommended_level": "high"
+		},
+		"pii_inject_docfmt": {
+			"model": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"prompt": "v2 flag/fail rule required: skills/ulw/references/sensitive-check-v2.md",
+			"fallback": "gemini-4-neon-high",
+			"recommended_level": "high"
+		},
+		"script_first": {
+			"model": "gemini-4-neon-medium",
+			"rule": "건수·합계·해시·기간 같은 숫자는 직접 세지 말고 스크립트로 계산한다. 보고서에는 실행한 명령과 출력 값을 그대로 인용하고, 입력 파일 해시를 함께 적는다.",
+			"note": "[미측정] routine/collection/mechanical: Neon medium 권장; 정확도·비용 실측 전.",
+			"fallback": "gemini-4-neon-medium",
+			"recommended_level": "medium"
+		},
+		"tool_first": {
+			"model": "gemini-4-neon-medium",
+			"rule": "OCR/STT 절차: skills/ulw/references/media-transcription.md를 읽고 따른다.",
+			"note": "[미측정] routine/collection/mechanical: Neon medium 권장; 정확도·비용 실측 전.",
+			"stt_model": "gemini-4-neon-medium",
+			"fallback": "gemini-4-neon-medium",
+			"recommended_level": "medium"
+		},
+		"forensic_verdict": {
+			"model": "gemini-4-neon-high",
+			"rule": "판정마다 근거(파일:줄, 해시, 오프셋, 메타데이터 필드 값)를 붙이고 근거 수준(확인/추정/불명)을 표시한다. 작성시각>수정시각처럼 정상 원인(복사·이동)이 있을 수 있는 현상은 단정하지 않고 '의심'으로 둔다.",
+			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
+			"fallback": "gemini-4-neon-high",
+			"never": [
+				"gemini-4-hydrogen-high"
+			],
+			"recommended_level": "high"
+		},
+		"mechanical": {
+			"model": "gemini-4-neon-medium",
+			"rule": "반복 변환·이름 변경은 스크립트로 일괄 처리하고, 처리 전후 파일 수와 샘플 3개를 비교해 보고한다.",
+			"note": "[미측정] routine/collection/mechanical: Neon medium 권장; 정확도·비용 실측 전.",
+			"fallback": "gemini-4-neon-medium",
+			"recommended_level": "medium"
+		},
+		"parallel_workers": {
+			"model": "gemini-4-hydrogen-high",
+			"note": "[미측정] Neon plans/verifies; Hydrogen execution workers only, never a gate.",
+			"recommended_level": "high"
+		}
+	},
+	"modes": {
+		"single": {
+			"use_when": "1-2 files, sequential work, or any task where one session can finish it",
+			"status": "[미측정] Neon 모드 통과율은 측정 전. Google 공식 Neon + Hydrogen 패턴 참고."
+		},
+		"subagents": {
+			"use_when": "3+ truly independent lanes with disjoint files",
+			"size_signals": [
+				"independent",
+				"parallel",
+				"lanes",
+				"multiple files",
+				"across the repo",
+				"독립적",
+				"병렬",
+				"레인",
+				"여러 파일",
+				"세 파일",
+				"세 개",
+				"전체 폴더",
+				"모든 파일",
+				"모든 모듈",
+				"전체 모듈",
+				"모든 컴포넌트",
+				"프로젝트 전체"
+			],
+			"status": "[미측정] Neon 모드 통과율은 측정 전. Google 공식 Neon + Hydrogen 패턴 참고."
+		},
+		"swarm": {
+			"use_when": "wide parallel work that needs verifiers; propose first, quota heavy",
+			"status": "미구현"
+		},
+		"boost": {
+			"use_when": "one hard problem where a single attempt failed",
+			"status": "미구현"
+		},
+		"teamwork": {
+			"use_when": "multi-day work that needs an interview first; propose it, do not start it silently",
+			"status": "미구현"
+		},
+		"orchestrator_builtin": {
+			"use_when": "not a default",
+			"status": "[미측정] Neon 모드 통과율은 측정 전. Google 공식 Neon + Hydrogen 패턴 참고."
+		},
+		"lazy_pipeline": {
+			"use_when": "not a default; the 3-stage plan/work/review pipeline",
+			"status": "[미측정] Neon 모드 통과율은 측정 전. Google 공식 Neon + Hydrogen 패턴 참고."
+		}
+	},
+	"quota_guard": {
+		"account_min_percent": null,
+		"model_min_percent": null,
+		"note": "Set thresholds from host observations; historical 8/10 percent not inherited. usage_guard only warns and checkpoints transitions; only gates enforce: observed limits block until recovery."
+	},
+	"task_kinds": {
+		"final_review": {
+			"description": "Final approval gate, distinct from ordinary verdict review",
+			"role": "final_review",
+			"signals": {
+				"keywords": [
+					"최종 리뷰",
+					"최종 검토",
+					"final review",
+					"승인"
+				],
+				"patterns": []
+			}
+		},
+		"security_audit": {
+			"description": "Security audit: vulnerabilities, secrets, injection and PII exposure in code or documents",
+			"role": "security_audit",
+			"override_on_match": true,
+			"signals": {
+				"keywords": [
+					"security audit",
+					"vulnerability",
+					"vulnerabilities",
+					"secret leak",
+					"보안 감사",
+					"보안 점검",
+					"취약점",
+					"보안 검토"
+				],
+				"patterns": [
+					"security review",
+					"보안상 문제",
+					"해킹 위험"
+				]
+			}
+		},
+		"forensic_verdict": {
+			"description": "Forensic verdicts on evidence: forgery, metadata, disk images, appraisal reports",
+			"role": "forensic_verdict",
+			"signals": {
+				"keywords": [
+					"forensic",
+					"forgery",
+					"tamper",
+					"metadata",
+					"e01",
+					"disk image",
+					"포렌식",
+					"위변조",
+					"위조",
+					"변조",
+					"조작 여부",
+					"메타데이터",
+					"감정서",
+					"감정 보고서",
+					"진위",
+					"디스크 이미지",
+					"tampered",
+					"tampering",
+					"작성시각",
+					"수정시각"
+				],
+				"patterns": [
+					"원본 여부"
+				]
+			}
+		},
+		"count_extract": {
+			"description": "Exact numbers: counts, totals, hashes, durations",
+			"role": "script_first",
+			"signals": {
+				"keywords": [
+					"how many",
+					"count",
+					"total",
+					"sum",
+					"checksum",
+					"sha256",
+					"md5",
+					"건수",
+					"몇 건",
+					"몇건",
+					"몇 개",
+					"몇 명",
+					"몇 번",
+					"합계",
+					"총합",
+					"집계",
+					"해시",
+					"해쉬",
+					"통계",
+					"빈도",
+					"file hash",
+					"hash value"
+				],
+				"patterns": [
+					"얼마나 많",
+					"전부 세",
+					"개수"
+				]
+			}
+		},
+		"media_transcribe": {
+			"description": "OCR and speech-to-text: reading text from images, audio and video",
+			"role": "tool_first",
+			"signals": {
+				"keywords": [
+					"ocr",
+					"stt",
+					"transcribe",
+					"transcription",
+					"speech to text",
+					"subtitle",
+					"전사",
+					"녹취",
+					"녹취록",
+					"받아쓰기",
+					"자막",
+					"판독",
+					"문자 인식",
+					"음성 인식",
+					"번호판"
+				],
+				"patterns": [
+					"글자 읽",
+					"말 받아"
+				]
+			}
+		},
+		"mechanical": {
+			"description": "Mechanical bulk changes: format conversion, renaming",
+			"role": "mechanical",
+			"signals": {
+				"keywords": [
+					"rename",
+					"convert",
+					"reformat",
+					"형식 변환",
+					"포맷 변환",
+					"이름 바꾸",
+					"이름 변경",
+					"일괄 변경",
+					"일괄 변환",
+					"파일명 정리"
+				],
+				"patterns": [
+					"으로 변환"
+				]
+			}
+		},
+		"plan": {
+			"description": "Planning or design before implementation",
+			"role": "plan",
+			"signals": {
+				"keywords": [
+					"plan",
+					"design",
+					"architecture",
+					"계획",
+					"설계",
+					"아키텍처",
+					"기획"
+				],
+				"patterns": [
+					"how should we",
+					"어떻게 만들",
+					"구조를 짜",
+					"계획 세워",
+					"설계해"
+				]
+			}
+		},
+		"judgment": {
+			"description": "Verdict, review, verification, or audit of existing work",
+			"role": "verdict_review",
+			"signals": {
+				"keywords": [
+					"verdict",
+					"review",
+					"verify",
+					"verification",
+					"audit",
+					"evaluate",
+					"assess",
+					"judge",
+					"PR",
+					"리뷰",
+					"검증",
+					"검토",
+					"감사",
+					"판정",
+					"평가"
+				],
+				"patterns": [
+					"is this correct",
+					"check if",
+					"inspect",
+					"올바른지",
+					"맞는지",
+					"적절한지",
+					"점검"
+				]
+			}
+		},
+		"long_execution": {
+			"description": "Implementation with tests or long fix-test loops; Hydrogen execution workers, never gates",
+			"role": "long_execution",
+			"signals": {
+				"keywords": [
+					"tdd",
+					"test-driven",
+					"until tests pass",
+					"fix and test",
+					"flaky",
+					"테스트 통과",
+					"테스트 루프",
+					"반복 실행"
+				],
+				"patterns": [
+					"run tests",
+					"make tests pass",
+					"테스트가 통과",
+					"테스트 실행까지"
+				]
+			}
+		},
+		"implementation": {
+			"description": "Code implementation, fixes, edits, or refactoring without long test loops",
+			"role": "implementation",
+			"signals": {
+				"keywords": [
+					"implement",
+					"build",
+					"create",
+					"add",
+					"edit",
+					"write",
+					"fix",
+					"refactor",
+					"migrate",
+					"구현",
+					"작성",
+					"만들어",
+					"수정",
+					"추가",
+					"고쳐",
+					"리팩토링",
+					"리팩터링",
+					"마이그레이션"
+				],
+				"patterns": [
+					"make it work",
+					"add a function",
+					"write a",
+					"fix the",
+					"만들어줘",
+					"구현해줘",
+					"추가해줘"
+				]
+			}
+		},
+		"sensitive": {
+			"description": "PII detection, prompt injection, or docfmt checks — v2 prompt required",
+			"role": "pii_inject_docfmt",
+			"override_on_match": true,
+			"signals": {
+				"keywords": [
+					"pii",
+					"personal data",
+					"prompt injection",
+					"injection",
+					"docfmt",
+					"sensitive data",
+					"privacy",
+					"개인정보",
+					"개인 정보",
+					"주민번호",
+					"주민등록번호",
+					"주입",
+					"민감 정보",
+					"프롬프트 인젝션",
+					"인젝션"
+				],
+				"patterns": [
+					"check for pii",
+					"scan for sensitive",
+					"injection check",
+					"개인정보 확인",
+					"민감 정보 점검"
+				]
+			}
+		},
+		"long_context": {
+			"description": "Tasks requiring ~250k+ token context: large documents or entire codebase",
+			"role": "long_context",
+			"signals": {
+				"keywords": [
+					"entire codebase",
+					"full repository",
+					"250k",
+					"large document",
+					"all files",
+					"판결문",
+					"판결",
+					"수백",
+					"장문",
+					"기록",
+					"전체 코드베이스",
+					"전체 저장소",
+					"전체 파일",
+					"대용량 문서"
+				],
+				"patterns": [
+					"entire repository",
+					"all source files",
+					"수백 페이지",
+					"판결문 요약",
+					"기록 분석",
+					"페이지 분석",
+					"전체 소스",
+					"전체 저장소 분석"
+				]
+			}
+		}
+	},
+	"source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon",
+	"model_id_note": "공식 ID gemini-4-neon (2026-11-19 확인). low/medium/high/xhigh 접미사는 저장소 라우팅 표기; 호스트 tier 매핑 미검증.",
+	"subagent_tiers_note": "[미측정] Google launch post: Neon orchestrator with parallel Hydrogen workers; host tier mapping is unverified.",
+	"reasoning_policy": {
+		"max_replans": 2,
+		"promotion_reasons": [
+			"failed_verification",
+			"interface_change",
+			"conflicting_evidence"
+		],
+		"note": "Reported cap (never a hook denial), not a measured optimum [미측정]. Record each replan reason/evidence; do not automatically spend the cap."
+	}
+}

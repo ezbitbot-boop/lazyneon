@@ -1,0 +1,9 @@
+{
+  "_note": "Copy to config/issuer.json and fill in your own organisation. Never commit the filled file.",
+  "organization": "",
+  "address": "",
+  "phone": "",
+  "account": "",
+  "author": "",
+  "seal_image": ""
+}

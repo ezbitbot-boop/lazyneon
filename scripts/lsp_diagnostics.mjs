@@ -1,0 +1,238 @@
+#!/usr/bin/env node
+import {pluginProvenance} from './provenance.mjs';
+/** lsp_diagnostics.mjs — LSP diagnostics & workspace/willRenameFiles preview */
+import { isMainModule } from './is-main.mjs';
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const IGNORE_DIRS = new Set(["node_modules", ".git", ".lazyneon", "__pycache__", "dist", "build", ".venv", "venv", "env"]);
+const CODE_EXTS = new Set([".mjs", ".js", ".cjs", ".ts", ".tsx", ".py", ".json"]);
+const VALID_CMDS = new Set(["check", "snapshot", "verify", "rename-preview"]);
+
+function checkTsSyntax(src) {
+	if (/(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*=|=\s*;|^\s*(?:import|export)\s*;|^\s*import\s+from\b|^\s*export\s+(?:const|let|var|function|class|type|interface)\s*;/m.test(src)) {
+		return "Malformed TypeScript declaration or import/export";
+	}
+	const stripped = src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/gm, (m) => (m.startsWith("//") || m.startsWith("/*") ? " " : '""'));
+	const stack = [];
+	const pairs = { "}": "{", ")": "(", "]": "[" };
+	for (const ch of stripped) {
+		if (ch === "{" || ch === "(" || ch === "[") stack.push(ch);
+		else if (ch in pairs && stack.pop() !== pairs[ch]) return `Unmatched closing '${ch}'`;
+	}
+	return stack.length > 0 ? `Unclosed '${stack[stack.length - 1]}'` : null;
+}
+
+function walkFiles(dir, exts = CODE_EXTS, acc = []) {
+	if (!existsSync(dir)) return acc;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		if (IGNORE_DIRS.has(entry.name)) continue;
+		const full = join(dir, entry.name);
+		try {
+			const st = statSync(full);
+			if (st.isDirectory()) walkFiles(full, exts, acc);
+			else if (st.isFile() && exts.has(extname(entry.name))) acc.push(full);
+		} catch {}
+	}
+	return acc;
+}
+
+export function checkSingleFile(filePath) {
+	const abs = resolve(filePath);
+	if (!existsSync(abs)) return { file: filePath, severity: "error", message: "File does not exist" };
+	const ext = extname(abs).toLowerCase();
+	if (ext === ".mjs" || ext === ".js" || ext === ".cjs") {
+		const res = spawnSync(process.execPath, ["--check", abs], { encoding: "utf8", timeout: 10000 });
+		return res.status !== 0 ? { file: filePath, severity: "error", message: (res.stderr || res.stdout || "Syntax error").trim() } : null;
+	}
+	if (ext === ".py") {
+		const pyCmd = process.platform === "win32" ? "python" : "python3";
+		const res = spawnSync(pyCmd, ["-B", "-m", "py_compile", abs], { encoding: "utf8", timeout: 10000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } });
+		return res.status !== 0 ? { file: filePath, severity: "error", message: (res.stderr || res.stdout || "Python compile error").trim() } : null;
+	}
+	if (ext === ".json") {
+		try {
+			JSON.parse(readFileSync(abs, "utf8"));
+			return null;
+		} catch (e) {
+			return { file: filePath, severity: "error", message: `JSON parse error: ${e.message}` };
+		}
+	}
+	if (ext === ".ts" || ext === ".tsx") {
+		const err = checkTsSyntax(readFileSync(abs, "utf8"));
+		return err ? { file: filePath, severity: "error", message: `TS syntax error: ${err}` } : null;
+	}
+	return null;
+}
+
+const BATCH_JS_WORKER = [
+	'const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");',
+	'const out=[],wrap=(s)=>`(function(exports,require,module,__filename,__dirname){${s}\\n});`;',
+	'for(const f of JSON.parse(fs.readFileSync(0,"utf8"))){try{',
+	'  const raw=fs.readFileSync(f,"utf8").replace(/^#!.*(?=\\r?\\n|$)/,"//"),ext=path.extname(f).toLowerCase();',
+	'  if(ext===".cjs"||typeof vm.SourceTextModule!=="function")new vm.Script(wrap(raw),{filename:f});',
+	'  else{try{new vm.SourceTextModule(raw,{identifier:f});}catch(err){if(ext===".js"){try{new vm.Script(wrap(raw),{filename:f});}catch{throw err;}}else throw err;}}',
+	'}catch(e){out.push({file:f,message:String(e?.stack?e.stack.split("\\n").slice(0,4).join("\\n"):e?.message||"Syntax error").trim()});}}',
+	"process.stdout.write(JSON.stringify(out));",
+].join("\n");
+
+const BATCH_PY_WORKER = "import json,sys\nout=[]\nfor f in json.loads(sys.stdin.read()):\n try:\n  with open(f,'rb') as h: compile(h.read(),f,'exec',dont_inherit=True)\n except Exception as e: out.append({'file':f,'message':f'{type(e).__name__}: {e}'})\nsys.stdout.write(json.dumps(out))";
+
+function runBatchCheck(cmd, args, files, env) {
+	if (files.length === 0) return new Map();
+	const res = spawnSync(cmd, args, { input: JSON.stringify(files), encoding: "utf8", timeout: 15000, env });
+	if (!res.error && res.status === 0 && res.stdout) {
+		try {
+			return new Map(JSON.parse(res.stdout).map((d) => [d.file, d.message]));
+		} catch {}
+	}
+	const fallback = new Map();
+	for (const f of files) {
+		const d = checkSingleFile(f);
+		if (d) fallback.set(f, d.message);
+	}
+	return fallback;
+}
+
+export function runDiagnosticsCheck({ files = [], root = process.cwd() } = {}) {
+	const rootAbs = resolve(root);
+	const targets = files.length > 0 ? files.map((f) => (existsSync(f) ? resolve(f) : resolve(rootAbs, f))) : walkFiles(rootAbs, CODE_EXTS);
+	const existing = targets.filter((f) => existsSync(f));
+	const jsErrs = runBatchCheck(process.execPath, ["--experimental-vm-modules", "--no-warnings", "-e", BATCH_JS_WORKER], existing.filter((f) => /\.(?:mjs|js|cjs)$/i.test(f)), process.env);
+	const pyErrs = runBatchCheck(process.platform === "win32" ? "python" : "python3", ["-B", "-c", BATCH_PY_WORKER], existing.filter((f) => /\.py$/i.test(f)), { ...process.env, PYTHONDONTWRITEBYTECODE: "1" });
+	const diagnostics = [];
+	for (const file of targets) {
+		const rel = relative(rootAbs, file) || basename(file);
+		if (!existsSync(file)) diagnostics.push({ file: rel, severity: "error", message: "File does not exist" });
+		else if (jsErrs.has(file)) diagnostics.push({ file: rel, severity: "error", message: jsErrs.get(file) });
+		else if (pyErrs.has(file)) diagnostics.push({ file: rel, severity: "error", message: pyErrs.get(file) });
+		else if (!/\.(?:mjs|js|cjs|py)$/i.test(file)) {
+			const d = checkSingleFile(file);
+			if (d) diagnostics.push({ ...d, file: rel });
+		}
+	}
+	return { plugin: pluginProvenance(), schema: "language_diagnostic_evidence/v1", no_new_diagnostics_observed: diagnostics.length === 0, checked_count: targets.length, error_count: diagnostics.length, diagnostics, worktree_isolated: false };
+}
+
+export function runSnapshot({ files = [], root = process.cwd(), baseline = ".lazyneon/lsp-baseline.json" } = {}) {
+	const check = runDiagnosticsCheck({ files, root });
+	const baselinePath = resolve(root, baseline);
+	mkdirSync(dirname(baselinePath), { recursive: true });
+	const payload = { plugin: pluginProvenance(), schema: "language_diagnostic_evidence/v1", mode: "snapshot", baseline_path: baselinePath, baseline_errors: check.diagnostics.length, checked_count: check.checked_count, error_count: check.diagnostics.length, diagnostics: check.diagnostics, worktree_isolated: false };
+	const tmp = `${baselinePath}.${process.pid}.${Date.now()}.tmp`;
+	writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+	renameSync(tmp, baselinePath);
+	return payload;
+}
+
+export function runVerify({ files = [], root = process.cwd(), baseline = ".lazyneon/lsp-baseline.json" } = {}) {
+	const baselinePath = resolve(root, baseline);
+	const baseData = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")) : { diagnostics: [] };
+	const baseSet = new Set((baseData.diagnostics || []).map((d) => `${d.file}::${d.message}`));
+	const check = runDiagnosticsCheck({ files, root });
+	const newDiagnostics = check.diagnostics.filter((d) => !baseSet.has(`${d.file}::${d.message}`));
+	return { plugin: pluginProvenance(), schema: "language_diagnostic_evidence/v1", mode: "verify", baseline_path: baselinePath, baseline_errors: (baseData.diagnostics || []).length, checked_count: check.checked_count, error_count: check.diagnostics.length, new_error_count: newDiagnostics.length, new_diagnostics: newDiagnostics, diagnostics: check.diagnostics, no_new_diagnostics_observed: newDiagnostics.length === 0, worktree_isolated: false };
+}
+
+function toPosix(p) {
+	return p.split("\\").join("/");
+}
+
+function stripExt(p) {
+	const ext = extname(p);
+	return ext ? p.slice(0, -ext.length) : p;
+}
+
+export function runRenamePreview({ root = process.cwd(), from, to } = {}) {
+	if (!from || !to) {
+		throw new Error("rename-preview requires --from <oldPath> and --to <newPath>");
+	}
+	const rootAbs = resolve(root);
+	const fromAbs = resolve(rootAbs, from);
+	const toAbs = resolve(rootAbs, to);
+	const allFiles = walkFiles(rootAbs);
+	const updates = [];
+	const affectedSet = new Set();
+	const barrelSet = new Set();
+	const specRx = /(?:from|import)\s+["']([^"']+)["']|(?:import|require)\(\s*["']([^"']+)["']\s*\)/g;
+
+	for (const file of allFiles) {
+		if (file === fromAbs) continue;
+		let content = "";
+		try {
+			content = readFileSync(file, "utf8");
+		} catch {
+			continue;
+		}
+		const fileDir = dirname(file);
+		const relFile = toPosix(relative(rootAbs, file));
+		const isBarrel = /^(?:index\.(?:mjs|js|cjs|ts|tsx)|__init__\.py)$/i.test(basename(file));
+
+		for (const match of content.matchAll(specRx)) {
+			const spec = match[1] || match[2];
+			if (!spec || (!spec.startsWith("./") && !spec.startsWith("../"))) continue;
+			const resolvedSpec = resolve(fileDir, spec);
+			if (resolvedSpec === fromAbs || stripExt(resolvedSpec) === stripExt(fromAbs)) {
+				const hadExt = Boolean(extname(spec));
+				let newRel = toPosix(relative(fileDir, hadExt ? toAbs : stripExt(toAbs)));
+				if (!newRel.startsWith(".")) newRel = `./${newRel}`;
+				updates.push({ file: relFile, old_specifier: spec, new_specifier: newRel, is_barrel: isBarrel });
+				affectedSet.add(relFile);
+				if (isBarrel) barrelSet.add(relFile);
+			}
+		}
+	}
+	return {
+		plugin: pluginProvenance(), schema: "workspace_will_rename_files/v1",
+		from: toPosix(relative(rootAbs, fromAbs)),
+		to: toPosix(relative(rootAbs, toAbs)),
+		affected_files: [...affectedSet],
+		barrel_files: [...barrelSet],
+		updates,
+	};
+}
+
+function parseCli(argv) {
+	const opts = { cmd: "check", files: [], root: process.cwd(), from: "", to: "", baseline: ".lazyneon/lsp-baseline.json", json: false };
+	for (let i = 0; i < argv.length; i += 1) {
+		const a = argv[i];
+		if (VALID_CMDS.has(a)) opts.cmd = a;
+		else if (a === "--files" && argv[i + 1]) opts.files = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
+		else if (a === "--root" && argv[i + 1]) opts.root = argv[++i];
+		else if (a === "--from" && argv[i + 1]) opts.from = argv[++i];
+		else if (a === "--to" && argv[i + 1]) opts.to = argv[++i];
+		else if (a === "--baseline" && argv[i + 1]) opts.baseline = argv[++i];
+		else if (a === "--json") opts.json = true;
+		else {
+			console.error(`Unknown subcommand or option: ${a}`);
+			process.exit(2);
+		}
+	}
+	return opts;
+}
+
+if (isMainModule(import.meta.url)) {
+	const opts = parseCli(process.argv.slice(2));
+	if (opts.cmd === "rename-preview") {
+		if (!opts.from || !opts.to) {
+			console.log(JSON.stringify({ plugin: pluginProvenance(), schema: "language_diagnostic_evidence/v1", error: "rename-preview requires --from <oldPath> and --to <newPath>" }));
+			process.exit(2);
+		}
+		console.log(JSON.stringify(runRenamePreview(opts), null, 2));
+		process.exit(0);
+	}
+	if (opts.cmd === "snapshot") {
+		console.log(JSON.stringify(runSnapshot(opts), null, 2));
+		process.exit(0);
+	}
+	if (opts.cmd === "verify") {
+		const res = runVerify(opts);
+		console.log(JSON.stringify(res, null, 2));
+		process.exit(res.no_new_diagnostics_observed ? 0 : 1);
+	}
+	const res = runDiagnosticsCheck(opts);
+	console.log(JSON.stringify(res, null, 2));
+	process.exit(res.error_count > 0 ? 1 : 0);
+}
