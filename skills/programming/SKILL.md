@@ -37,6 +37,8 @@ This skill is an index. Detailed per-language rules live under `references/`. Lo
 ## Shared Philosophy (All Languages)
 
 0. **The best code is the code never written.** Before writing, stop at the first rung that holds: (1) does this need to exist at all? (YAGNI) (2) does this codebase already have it? — reuse the helper or pattern, do not re-implement. (3) does the standard library do it? (4) does a native platform feature cover it? (5) does an installed dependency solve it? (6) can it be one line? (7) only then, write the minimum that works. Bug fix = root cause, not symptom; fix at the shared seam.
+
+한 줄로 줄이기 위해 분기·조건·부작용을 숨기지 않는다. 줄 수보다 사람이 읽을 수 있는 이름과 명시적인 제어 흐름을 우선한다.
 1. **The type system is your proof system.** Make illegal states unrepresentable. Express bugs as compile-time type errors.
 2. **Parse, don't validate.** Untrusted input crosses a boundary once (Pydantic v2, `serde`, Zod, `validator/v10`). Inside the boundary, code receives typed values.
 3. **One name = one concept.** Use branded types / newtypes (`UserId = NewType(...)`, `struct UserId(u64)`, `type UserId = Brand<...>`).

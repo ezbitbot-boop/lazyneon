@@ -30,9 +30,25 @@ for (const [script,args,payload] of [
 ]) test(`R3 M2 linked entry ${script}`, t => {
  const d=tmp(t); const link=path.join(d,'linked'); fs.symlinkSync(root,link,process.platform==='win32'?'junction':'dir');
  fs.mkdirSync(path.join(d,'source')); fs.writeFileSync(path.join(d,'broken.json'),'{bad'); const p={...payload,cwd:d};
+ const started = Date.now();
  const real=run(path.join(root,'scripts',script),args,p,d); const linked=run(path.join(link,'scripts',script),args,p,d);
+ const finished = Date.now();
  assert.equal(linked.status,real.status,linked.stderr); assert.ok(linked.stdout+linked.stderr,'entry must execute');
- assert.equal(linked.stdout,real.stdout); assert.equal(linked.stderr,real.stderr);
+ if (script === 'session_start.mjs') {
+  // Separate sessions have separate clocks; all other output must stay identical.
+  const outputs = [real.stdout, linked.stdout].map(stdout => {
+   const payload = JSON.parse(stdout);
+   const context = payload.injectSteps[0].systemMessage;
+   const stamp = context.systemMessage.match(/세션 시작 시각\(UTC\): (\S+)\. 시간 민감/);
+   assert.ok(stamp, 'each entry must inject its session clock');
+   const time = Date.parse(stamp[1]);
+   assert.ok(time >= started && time <= finished, 'clock belongs to this execution');
+   context.systemMessage = context.systemMessage.replace(stamp[1], '<validated session time>');
+   return payload;
+  });
+  assert.deepEqual(outputs[1], outputs[0]);
+ } else assert.equal(linked.stdout,real.stdout);
+ assert.equal(linked.stderr,real.stderr);
  if(script==='json_schema_guard.mjs') { assert.equal(linked.status,1); assert.match(linked.stderr,/FAIL/); }
  if(script==='session_start.mjs') assert.ok(JSON.parse(linked.stdout).injectSteps.length);
 });

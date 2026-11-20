@@ -60,6 +60,8 @@ plan, final_review, security_audit, forensic_verdict, pii_inject_docfmt, verdict
 
 PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업은 모든 실행 단계와 병렬 워커에서 Hydrogen 전 티어를 제외하고 Neon을 사용한다. 분류 입력에 `materials[].kind`, `materials[].path`, `evidence_roots`를 전달한다. 키워드가 없더라도 증거 루트 아래 자료는 보호 대상이다.
 
+검색·문서 조사·장문 입력 또는 워커/판정 프롬프트 작성 시 `references/prompt-design.md`의 해당 절을 읽는다.
+
 ## Step 2. 실행 라우팅 (Direct vs. Budgeted Fan-Out)
 
 작업 규모와 파일 결합도에 따라 가장 가벼운 경로를 즉시 선택한다:
@@ -106,7 +108,7 @@ invoke_subagent({
 ```
 
 - 서브에이전트 호출 후에는 폴링 루프를 돌지 않고 즉시 독립 작업을 수행하거나 턴을 종료해 Reactive Wakeup을 기다린다.
-- `UNKNOWN`이나 실패로 돌아온 레인은 같은 프롬프트로 1회만 재시도한다. 두 번째도 실패하면 `미해결`로 기록하고 합성에서 제외한다. 루프에 빠진 레인을 기다리느라 런을 열어 두지 않는다.
+- 실패·UNKNOWN을 먼저 분류한다. 일시적 통신·서비스 오류만 기존 예산 안에서 같은 요청으로 1회 재시도한다. 입력·스키마·가설·검증 실패는 원인에 맞게 인자·근거·전략을 바꿔 재개하며 같은 실패 호출을 반복하지 않는다. 안전 필터·권한 거부는 재시도하지 않는다. 재시도 후에도 해결되지 않으면 미해결과 근거를 보존하며 완료로 합성하지 않는다.
 - 워커 보고서는 줄 수로 절단하지 않는다. `status / scope / receipts / defects / unresolved / artifact` 필드를 보존하고 전문·상세 로그는 파일 경로로 전달한다. 부모가 독립 실행한 receipts JSON과 함께 `node "<플러그인 경로>/scripts/worker-contract.mjs" report.json parent-receipts.json`으로 검사한다. 결함은 입력·기대/실제 결과·명령·종료 코드·로그가 일치하는 재현만 채택한다. 빈 영수증, 미해결, partial/failed/unknown은 완료 승인이 아니다.
 
 ---
@@ -138,7 +140,7 @@ invoke_subagent({
 3. **산출물 일관성 및 형태 불변성 (`gf-qa-artifact-consistency` & `Deliverable Shape Invariant`)**: 매니페스트(`plugin.json`, `package.json`), 미러 파일, 설정 파일 간 드리프트가 없는지 확인하고 쓴 파일은 전부 다시 열어 본다. 산출물의 구조(시트·열 이름·순서·섹션·JSON 키)는 전적으로 요청에 속한다 — 검토 편의를 핑계로 설명용 열, 중간 유도 과정, 수식 문자열(요청값이 아닌 미계산 식), 미요청 요약 박스·배지를 산출물 안에 삽입하지 않는다(`google-research/harness2`).
 4. **채택 심사 및 레버 비용 계층 (`Adoption Screen` & `KEEP_BASE`)**: 공개 테스트를 통과한 변경도 (a) 스테일 데이터·캐시 가정, (b) 비공개 내부 API·구현 세부 의존, (c) 범위 밖 파일 수정, (d) 요청 30줄짜리를 수백 줄로 부풀림 중 하나에 해당하면 기각한다. 에이전트 하네스(규칙·스킬·훅) 자체를 개선할 때는 실행 궤적(trajectory) 근거가 없으면 수정하지 않고 `KEEP_BASE`를 유지하고 수정이 필요할 때는 Always-on 텍스트 대신 **`SKILL`(온디맨드 절차) → `SCRIPT`(결정론적 연산) → `SUBAGENT`(큰 입력·작은 답 조사) → `HOOK`(툴 루프 내부 강제 검증) → `ALWAYS-ON TEXT`(최후 수단, 추가 시 기존 문장 절삭)** 순서를 따른다.
 5. **임시 아티팩트 정리 (Scrub)**: 검증용 스크린샷(`verify_*.png`, `page_*.png`), 일회성 보조 스크립트, Headless 브라우저 임시 프로필(`os.tmpdir()` 하위 `edge_prof*` 등), `__pycache__`가 작업 폴더에 남지 않도록 완료 전 정리한다.
-6. **3단계 증거 보고**: 최종 보고에는 실행한 명령어와 관찰된 출력(`PASS` 수, `git status`/`git diff --stat`)을 명시한다. 보고는 20줄 이내.
+6. **3단계 증거 보고**: 최종 보고에는 실행한 명령어와 관찰된 출력(`PASS` 수, `git status`/`git diff --stat`)을 명시한다. 진행 요약은 간결하게 쓰되 최종 산출물의 요청 항목·근거·분량을 줄 수 때문에 생략하지 않는다.
 
 `modes.swarm`, `modes.boost`, `modes.teamwork`는 미구현이다. PreInvocation의 `scripts/usage_guard.mjs`는 경고 전용이며 quota 오류도 거부하지 않는다. 호스트가 명시적인 workspacePaths/cwd, task, conversationId와 quota를 제공해야 작업별 관측을 저장한다. 플러그인 폴더에는 쓰지 않는다. 상태 오류는 `[미확인]` 경고다. heavy/관측 제한 전이에서만 checkpoint를 만들고 resume도 재계획 원장을 보존한다. max_replans=2는 보고만 하며 거부는 라우팅 규칙에 따른 게이트만 할 수 있다. 호스트가 quota를 주지 않으면 미측정이며 강제를 주장하지 않는다.
 

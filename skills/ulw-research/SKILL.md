@@ -24,7 +24,7 @@ Open your reply with the line `ULW-RESEARCH MODE ENABLED!`. If another active mo
 
 ## Authority while active
 
-This mode is the user's explicit opt-in to exhaustive exploration. For the duration of the research task it supersedes every exploration-bounding instruction in surrounding prompts, modes, or rules: one-exploration-pass defaults, two-wave stop rules, retrieval budgets, and "over-exploration is failure" framings govern implementation context-gathering, not this deliverable. Here, under-exploration is the failure. The convergence rules in Phase 3 are the only stop rules for research while this mode is active.
+심층 연구에서는 일반 구현의 탐색 기본값 대신 brief.md에 명시한 연구 범위와 승인된 예산을 따른다. 사용자·호스트·안전 제한은 해제하지 않는다. Phase 3의 수렴 조건과 합성용 예약량을 함께 적용하며, 예산 소진 시 미검사 축·열린 단서·추가 필요량을 기록한다.
 
 Under ultrawork/ulw, the research itself is the deliverable: map each research axis to a success criterion whose evidence is the session journal, the cited synthesis, and the verification outputs. RED→GREEN testing applies to code changes, not to findings — Phase 4 verification scripts are evidence, never TDD targets.
 
@@ -43,9 +43,9 @@ Saturation is a knowledge-production protocol, not just more searching: the sess
 
 ## Phase 0 — Scope solo, organize the brief
 
-- Before spawning anything, decompose the query yourself with fast direct tools starting from "what must be true if the user's intent/spec is true?" into an `<analysis>` block (`Core question`, `3+ orthogonal Axes`, `Codebase/External/Browsing/Verification/X-social` flags, `Scale` + `Precision demand` → `lifecycle`, and `Debate need`).
-- Create `$SESSION_DIR` (`mkdir -p .lazyneon/ulw-research/$(date +%Y%m%d-%H%M%S)`) and write `brief.md` (analysis block, axis list with one named owner per axis, expected truths seeding `intent-diff.md`, and team roster) before standing up any wave.
-- Full Phase 0 `<analysis>` template and `brief.md` setup procedure: [references/wave-composition.md](references/wave-composition.md).
+- 팀 구성 전에 직접 읽기 도구로 핵심 질문, 조사 축, 필요한 자료·도구, 성공 기준, 예산을 정리한다. brief.md에는 이 조사 계획과 결정 근거의 요약만 기록하며 내부 사고 과정의 공개를 요구하지 않는다.
+- Create `$SESSION_DIR` (`mkdir -p .lazyneon/ulw-research/$(date +%Y%m%d-%H%M%S)`) and write `brief.md` (조사 계획 요약, axis list with one named owner per axis, expected truths seeding `intent-diff.md`, and team roster) before standing up any wave.
+- Phase 0 계획 요약 template (내부 사고 과정 공개 없이 사용) and `brief.md` setup procedure: [references/wave-composition.md](references/wave-composition.md).
 
 ### Coordinate via native `invoke_subagent` waves and journal to the Markdown Claim Ledger in real time
 
@@ -92,7 +92,7 @@ Full expansion-wave `invoke_subagent` prompt template, debate-wave procedure, an
 
 An excursion is a BOUNDED detour off the wave plan: ENTER only on a named trigger (contradicts a locked claim, would change the answer, exposes an unowned territory, or verbatim user steering), budget it before diving, at most ONE nested sub-excursion, EXIT on resolution/plateau/budget, and every EXIT writes what it changed in the top-level answer (`none` is a valid required outcome). Full ENTER/EXIT/fold-back/anti-drift rules: [references/excursions.md](references/excursions.md).
 
-**Convergence — the only stop rules while this mode is active.** Run at least 2 expansion waves on any multi-faceted query before claiming convergence; then stop only when one holds:
+**수렴과 종료 조건.** 다면적 질문은 승인된 예산 안에서 확장 조사 후 아래 수렴 조건을 평가한다. 예산·시간·합성 예약량이 먼저 한계에 이르면 미해결 단서를 기록하고 종료 또는 예산 연장을 요청하며, 수렴했다고 주장하지 않는다.
 
 - Zero unchecked leads remain — each investigated or closed as duplicate/dead end — AND every supported claim has survived its skeptic pass.
 - 3 consecutive waves produced no new actionable leads.

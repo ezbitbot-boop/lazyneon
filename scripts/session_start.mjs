@@ -132,6 +132,7 @@ export function runtimeContext(payload = {}) {
 		`플러그인 경로: ${root}`,
 		`워크스페이스: ${cwd}`,
 		`세션 모델: ${model}${model === "unknown" ? " (호스트 미보고 — Neon이라고 가정하지 말 것; 사고 수준은 세션 설정에서만 바뀜)" : ""}`,
+		`세션 시작 시각(UTC): ${new Date().toISOString()}. 시간 민감 검색은 질문의 기준일을 적용하고, 현재 정보가 필요하면 검색 시점의 날짜·시간대를 확인한다. 이 시각은 증거 발생 시각이나 모델 지식 기준일이 아니다.`,
 		"기본 예산: 4 레인 / 2 웨이브 (사용자 지정 전까지)",
   `예상 사용량: ${usage.class} — ${usage.note}${usage.warning ? `; ${usage.warning}` : ""}`,
 		"",

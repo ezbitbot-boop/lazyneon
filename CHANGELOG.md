@@ -1,3 +1,7 @@
+# 0.4.2 — 2026-11-20
+
+- Prompt-guide gaps: add on-demand evidence/input design rules, source-language grounding, failure-specific retries, requested report length, dynamic UTC session time, bounded research, competing hypotheses, scoped recovery and readable code guidance. Model behavior gains remain unmeasured.
+
 # 0.4.1 — 2026-11-20
 
 - SessionStart remains notify-only even with the legacy auto-update opt-in; installed code changes require an explicit update command.

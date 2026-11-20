@@ -112,7 +112,7 @@ test('one rule budget, one STT procedure, declared unfinished modes and release 
  assert.equal(routing.roles.tool_first.stt_model, routing.roles.tool_first.model);
  for (const mode of ['swarm', 'boost', 'teamwork']) assert.equal(routing.modes[mode].status, '미구현');
  assert.match(routing.quota_guard.note, /observed limits block until recovery/);
- for (const file of ['plugin.json', 'package.json']) assert.equal(JSON.parse(fs.readFileSync(path.join(root, file))).version, '0.4.1');
+ for (const file of ['plugin.json', 'package.json']) assert.equal(JSON.parse(fs.readFileSync(path.join(root, file))).version, '0.4.2');
  for (const file of ['skills/ulw/SKILL.md', 'skills/ulw/references/dual-verify.md']) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /claude-opus|Claude Sonnet/);
 });
 
