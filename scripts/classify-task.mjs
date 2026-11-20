@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import {scanMaterials} from './injection_scan.mjs';
+import {protectedMaterials} from './protected-materials.mjs';
 import { reasoningLanguage, ENGLISH_GUIDANCE } from './reasoning-language.mjs';
 import { promoted } from './run-policy.mjs';
 import {verifyHandoff} from './handoff-contract.mjs';
@@ -203,11 +205,13 @@ export async function executeGate(roles, roleName, run, options = {}) {
    options={...options,previous_interaction_id:options.handoff.previous_interaction_id};
   } catch(error) {return {status:'refused',reason:'handoff_reverify',attempts};}
  }
+ let materials;
+ try {materials=scanMaterials(options.materials??[]);} catch(error) {return {status:'refused',reason:'invalid_gate_materials',attempts};}
  const models = [promoted(options.promotion,{cwd:options.cwd,gate:roleName,receipts:options.receipts}) ? "gemini-4-neon-xhigh" : "gemini-4-neon-high"];
  // Latency/unavailability does not justify an automatic duplicate call.
  for (const model of models) {
   let result;
-  try { result = await run(model, { role: roleName, prompt: role.prompt, ...(options.supports_previous_interaction_id&&options.previous_interaction_id?{previous_interaction_id:options.previous_interaction_id}:{}) }); }
+  try { result = await run(model, { role: roleName, prompt: role.prompt, materials, ...(options.supports_previous_interaction_id&&options.previous_interaction_id?{previous_interaction_id:options.previous_interaction_id}:{}) }); }
   catch (error) { result = { status: "unavailable", error: String(error.message ?? error) }; }
   if (result?.continuation_token || result?.finish_reason === "CONTINUATION") {
    if (typeof options.continue !== "function") return {status:"refused",reason:"continuation_adapter_required",attempts};
@@ -284,6 +288,15 @@ export function classifyTask(prompt, hostPayload = {}) {
 	let { kind } = pickKind(scores, task_kinds);
 	// Mechanical hash collection is not an authenticity verdict or generic implementation.
 	if (scores.count_extract > 0 && !Object.keys(task_kinds).some(k => scores[k] > 0 && isGate(roles, task_kinds[k].role))) kind = 'count_extract';
+ const hydrogenExcluded=protectedMaterials(prompt,hostPayload,Object.keys(scores).filter(k=>scores[k]>0));
+ if(hydrogenExcluded) {
+  for(const role of Object.values(roles)) {
+   for(const field of ['model','fallback']) if(modelFamily(role[field])==='gemini-4-hydrogen') {
+    role[field]='gemini-4-neon-high';
+    role.note='[미측정] Protected materials: Neon workers; Hydrogen family excluded.';
+   }
+  }
+ }
  const tokenCounts=[...prompt.matchAll(/(\d[\d,_]*(?:\.\d+)?)\s*([kKmM]?)\s*(?:tokens?\b|토큰)/gi)].map(m=>Number(m[1].replace(/[,_]/g,''))*({k:1000,m:1000000}[m[2].toLowerCase()]??1));
  const shorthand=/\b(?:2[5-9]\d|[3-9]\d{2}|\d{4,})k(?![\p{L}\p{N}_])/iu.test(prompt);
  const longContext=(scores.long_context??0)>0||tokenCounts.some(n=>n>=250000)||shorthand;
@@ -349,7 +362,7 @@ export function classifyTask(prompt, hostPayload = {}) {
 		.map((k) => roles[task_kinds[k].role]?.rule)
 		.filter(Boolean);
 	const rules = [...new Set([...matchedRules, routing.common_rule].filter(Boolean))];
- const reasoning_language = reasoningLanguage(prompt, kind, Object.keys(task_kinds).filter(k => scores[k] > 0));
+ const reasoning_language = hydrogenExcluded ? 'ko' : reasoningLanguage(prompt, kind, Object.keys(task_kinds).filter(k => scores[k] > 0));
  if (reasoning_language === 'en') rules.push(ENGLISH_GUIDANCE);
 	const sttModel = Object.keys(task_kinds)
 		.filter((k) => (scores[k] ?? 0) > 0)
@@ -358,6 +371,7 @@ export function classifyTask(prompt, hostPayload = {}) {
 
 	return {
                 reasoning_language,
+                hydrogen_excluded: hydrogenExcluded,
                 recommended_level: roleData.recommended_level,
                 usage: estimateUsage(longContext ? "long_context" : size, roleData.recommended_level, prompt),
                 document_input: documentInput,

@@ -23,7 +23,7 @@
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"fallback": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"recommended_level": "high"
 		},
@@ -32,7 +32,7 @@
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"fallback": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"recommended_level": "high"
 		},
@@ -56,14 +56,14 @@
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"fallback": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"recommended_level": "high"
 		},
 		"verdict_review": {
 			"model": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"fallback": "gemini-4-neon-high",
@@ -83,7 +83,7 @@
 		"pii_inject_docfmt": {
 			"model": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"prompt": "v2 flag/fail rule required: skills/ulw/references/sensitive-check-v2.md",
@@ -111,7 +111,7 @@
 			"note": "[미측정] high baseline; xhigh only with evidenced failed_verification, interface_change or conflicting_evidence.",
 			"fallback": "gemini-4-neon-high",
 			"never": [
-				"gemini-4-hydrogen-high"
+				"gemini-4-hydrogen"
 			],
 			"recommended_level": "high"
 		},
@@ -518,5 +518,19 @@
 			"conflicting_evidence"
 		],
 		"note": "Reported cap (never a hook denial), not a measured optimum [미측정]. Record each replan reason/evidence; do not automatically spend the cap."
+	},
+	"protected_materials": {
+		"never": [
+			"gemini-4-hydrogen"
+		],
+		"parallel_workers": "gemini-4-neon-high",
+		"inputs": [
+			"kind",
+			"materials[].kind",
+			"materials[].path",
+			"evidence_roots",
+			"prompt"
+		],
+		"rule": "PII, sensitive, security_audit, forensic_verdict and any evidence/PII material exclude all Hydrogen tiers across the entire task, including compound execution steps."
 	}
 }

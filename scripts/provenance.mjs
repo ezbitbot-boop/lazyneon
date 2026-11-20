@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync,realpathSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -12,6 +12,9 @@ export function pluginProvenance(pluginRoot=root) {
   const r=spawnSync('git',['-C',pluginRoot,...args],{encoding:'utf8',timeout:1500,env:{...process.env,GIT_OPTIONAL_LOCKS:'0'}});
   return r.status===0&&!r.error&&!r.signal?r.stdout.trim():null;
  };
+ let own=false;
+ try {const top=git(['rev-parse','--show-toplevel']);own=Boolean(top)&&realpathSync(top)===realpathSync(pluginRoot);} catch {}
+ if(!own) return {version,commit:null,dirty:null};
  const commit=git(['rev-parse','--verify','HEAD']);
  const status=commit?git(['status','--porcelain','--untracked-files=all']):null;
  return {version,commit,dirty:status===null?null:status.length>0};

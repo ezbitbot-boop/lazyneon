@@ -608,6 +608,6 @@ test("routing contains no Argon model or fallback and preserves gate exclusions"
 		assert.equal(Object.keys(entry).some(k => k.startsWith("baseline_")), false, role);
 	}
 	for (const role of ["plan", "final_review", "security_audit", "pii_inject_docfmt", "forensic_verdict", "verdict_review"]) {
-		assert.deepEqual(ROUTING.roles[role].never, ["gemini-4-hydrogen-high"]);
+		assert.deepEqual(ROUTING.roles[role].never, ["gemini-4-hydrogen"]);
 	}
 });

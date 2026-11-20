@@ -1,6 +1,6 @@
 {
   "name": "lazyneon",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -16,5 +16,8 @@
     "test:prod": "node --test test/diagram_templates.test.mjs test/doctor.test.mjs test/gates_and_stats.test.mjs test/hooks-guards.test.mjs test/hooks.test.mjs test/session_start.test.mjs",
     "doctor": "node scripts/doctor.mjs"
   },
-  "license": "MIT"
+  "license": "SEE LICENSE IN LICENSE",
+  "companion": {
+    "lazyneon-workspace": ">=0.1.0"
+  }
 }

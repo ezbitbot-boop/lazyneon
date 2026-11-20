@@ -1,20 +1,21 @@
 # ATTRIBUTION / NOTICE
 
-This package (`@oh-my-opencode/shared-skills`) includes third-party content that is
-redistributed under its original license, consistent with the project's distribution
-license (see `LICENSE.md`: "All third party components incorporated into the
+Inherited package provenance: `@oh-my-opencode/shared-skills`. Its upstream
+`LICENSE.md` states: "All third party components incorporated into the
 oh-my-opencode Software are licensed under the original license provided by the owner of
-the applicable component"). Each upstream's license and required notices are reproduced
-below. Modifications to the original files are noted where applicable.
+the applicable component". Upstream used pinned submodules under
+`packages/shared-skills/upstreams/{open-design,taste-skill,ui-ux-pro-max,designpowers}`;
+that is historical packaging context, not this fork's directory layout.
 
-These third-party references are NOT committed to this repository. Each upstream is
-tracked as a pinned git submodule under `packages/shared-skills/upstreams/<name>`, and the
-build materializes the referenced files path-mapped into this skill's `references/` tree,
-when packaging the published artifact. The file bodies are copied verbatim, except
-materialized `SKILL.md` frontmatter may normalize an unquoted single-line `description:`
-scalar into a JSON-quoted YAML string so Codex/OpenCode frontmatter parsing remains
-deterministic; the description text itself is unchanged. The `Pinned upstream commit` line
-in each section below records the exact submodule commit that the materialization reads.
+This LazyNeon fork ships third-party references under `skills/frontend/references/`.
+The root LICENSE describes distribution exceptions; upstream licenses and notices below
+remain applicable. The pinned upstream commits below record inherited source provenance,
+not a claim that this fork uses submodules or a materialization build.
+
+Sections 1–4 describe files included in this repository. Paths written as `frontend/`
+below are relative to `skills/`. Upstream path mapping and any frontmatter description
+quoting normalization are retained. This correction changes distribution descriptions
+only; it does not remove notices, receipts or third-party source files.
 
 ---
 
@@ -23,8 +24,7 @@ in each section below records the exact submodule commit that the materializatio
 The brand design-system reference files under `frontend/references/design/<brand>.md`
 (Apple, Stripe, Linear, Nike, BMW, Airbnb, Bugatti, Tesla, and the other named brands)
 are path-mapped verbatim copies of the `design-systems/<brand>/DESIGN.md` files from the
-Open Design project. They are not committed here; the build materializes them from the
-pinned submodule under `packages/shared-skills/upstreams/open-design` into
+Open Design project. This fork includes them in
 `frontend/references/design/<brand>.md` (dots in `<brand>` map to dashes for the upstream
 directory name, e.g. `linear.app` -> `linear-app`).
 
@@ -70,8 +70,7 @@ taste-skill project (each `skills/<name>/SKILL.md` is renamed to
 `references/design/<name>.md`; `imagegen-brandkit.md` maps from `skills/brandkit/SKILL.md`).
 `stitch-design-example.md` is a path-mapped verbatim copy of `skills/stitch-skill/DESIGN.md`,
 the worked example of the design-system document that the stitch skill exports.
-They are not committed here; the build materializes them from the pinned submodule under
-`packages/shared-skills/upstreams/taste-skill`. Only the allowed frontmatter description
+They are included here under `skills/frontend/references/design/`. Only the allowed frontmatter description
 quoting normalization described above may alter these materialized `SKILL.md` files.
 
 - Source: https://github.com/Leonxlnx/taste-skill
@@ -108,9 +107,7 @@ SOFTWARE.
 
 The search engine and dataset under `frontend/references/ui-ux-db/` (`scripts/core.py`,
 `scripts/search.py`, `scripts/design_system.py`, `README.md`, and the `data/*.csv`
-knowledge base) are path-mapped verbatim copies from the UI/UX Pro Max skill. They are not
-committed here; the build materializes them from the pinned submodule under
-`packages/shared-skills/upstreams/ui-ux-pro-max`:
+knowledge base) are path-mapped verbatim copies from the UI/UX Pro Max skill. They are included here under `skills/frontend/references/ui-ux-db/`:
 `scripts/*.py` from `src/ui-ux-pro-max/scripts/`, `data/*.csv` from
 `src/ui-ux-pro-max/data/` (`data/web-interface.csv` maps from the upstream
 `data/app-interface.csv`), and `README.md` from `.claude/skills/ui-ux-pro-max/SKILL.md`.
@@ -149,9 +146,7 @@ SOFTWARE.
 ## 4. designpowers (Owl-Listener) — design operating-layer references
 
 The designpowers reference corpus under `frontend/references/designpowers/vendor/` is
-path-mapped from the designpowers project. It is not committed here; the build
-materializes the selected files from the pinned submodule under
-`packages/shared-skills/upstreams/designpowers`. The materialized set includes the
+path-mapped from the designpowers project. It is included here under `skills/frontend/references/designpowers/vendor/`. The materialized set includes the
 upstream `LICENSE`, ten `agents/*.md` role-reference files, and selected
 `skills/*/SKILL.md` files renamed to `vendor/skills/*/reference.md` so they remain
 reference documents instead of nested skill entrypoints. Bridge/state/router integration skills are intentionally
@@ -252,8 +247,7 @@ contracts for mechanism extraction only.
 `frontend/references/perfection/craft-floor.md`, the "Browser surfaces", "Type and spacing
 floor" and "No generated scaffold" rules in `frontend/SKILL.md`, and the matching
 `visual-qa/SKILL.md` checklist items (A3 measure, A13, B8, E7, F8, F9) are adapted from
-`skill/reference/craft-floor.md` of the Impeccable project. Unlike sections 1-4 these files
-are committed: they are rewritten in this project's words, with a few short phrases kept
+`skill/reference/craft-floor.md` of the Impeccable project. Like sections 1–4 these files are included here: they are rewritten in this project's words, with a few short phrases kept
 close to the source.
 
 - Source: https://github.com/pbakaus/impeccable

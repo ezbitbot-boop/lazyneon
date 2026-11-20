@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {companionLine,companionStatus} from './companion.mjs';
 import {pluginProvenance, provenanceLine} from './provenance.mjs';
 // doctor.mjs — lazyneon 플러그인 진단 (읽기 전용). 파일을 만들거나 고치지 않는다.
 // 검사: Node/Python 버전, hooks.json 배선과 스크립트 존재, 스킬 프런트매터, 독립 코어 가드,
@@ -547,6 +548,8 @@ function skillsSourceReceipts() {
 
 // 느린 검사를 바로 보이게 한다(Windows 에서 '너무 오래 걸린다'는 보고, 2026-11-02).
 if (isMainModule(import.meta.url)) {
+const companion=companionStatus();
+add('companion',companion.installed&&!companion.compatible?'warn':'ok',companionLine(companion));
 const slow = [];
 for (const fn of [nodeVersion, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
 	const t0 = Date.now();

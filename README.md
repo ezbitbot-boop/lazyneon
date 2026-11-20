@@ -1,4 +1,4 @@
-# LazyNeon (`v0.3.0`)
+# LazyNeon (`v0.4.0`)
 
 Gemini 4 Neon용 독립 Google Antigravity 플러그인이다. `/ulw` 실행, 모델 라우팅과 범용 가드를 코어에서 소유한다. MIT 원저작자 표기는 [NOTICE](NOTICE)에 보존한다.
 
@@ -12,9 +12,9 @@ LAZYNEON_OFFLINE=1 node scripts/doctor.mjs
 
 상태는 `.lazyneon/`, 환경변수는 `LAZYNEON_*`, 피드백 기본 경로는 `~/.lazyneon/feedback`이다. 자동 업데이트는 기본 꺼짐이며 `LAZYNEON_AUTO_UPDATE=1`로 켠다. `LAZYNEON_OFFLINE=1` 또는 `LAZYNEON_NO_AUTO_UPDATE=1`이 켜기 설정보다 우선한다. `LAZYNEON_OFFLINE=1`은 doctor의 live RPC 조회를 막는다. doctor는 `--live`를 줄 때만 실행 중인 Antigravity language server에 접속해 플러그인 로딩 상태를 읽는다(기본은 접속하지 않음).
 
-선택적 동반 플러그인 `lazyneon-workspace`는 도메인 스킬을 별도로 제공한다. 상호 런타임 탐지는 없다. 코어만 `.lazyneon/`과 write_chunk, markdown_structure, json_schema, stop_claim, lookup, post_tool_feedback 가드를 소유한다. 동반 플러그인은 `pins.md`, `ulw-scope.md`를 읽기만 하며 이 파일을 쓰거나 범용 가드를 등록하지 않는다.
+선택적 동반 플러그인 `lazyneon-workspace`는 도메인 스킬을 별도로 제공한다. SessionStart와 doctor는 형제 폴더의 plugin.json 이름·버전으로 선택적 companion(>=0.1.0)을 읽기 전용 검사한다. 설치되어 있으면 호환성을 알리며, 없으면 doctor에만 forensic/legal skills not installed를 표시한다. 실패해도 세션을 차단하지 않는다. 코어만 `.lazyneon/`과 write_chunk, markdown_structure, json_schema, stop_claim, lookup, post_tool_feedback 가드를 소유한다. 동반 플러그인은 `pins.md`, `ulw-scope.md`를 읽기만 하며 이 파일을 쓰거나 범용 가드를 등록하지 않는다.
 
-라우팅의 단일 기준은 `skills/ulw/references/model-routing.json`이다. Neon이 판단하고 Hydrogen이 수집·구현한다. 호스트가 보고한 Neon 세션이 필요한 티어 이상이면 게이트는 `in_session`, `pending`으로 배정한다. 분류는 검증 PASS가 아니며 실행 근거가 필요하다. Neon high 기준선이며 근거 있는 해당 게이트 승격 시에만 `xhigh 권장, high로 진행`을 안내한다. 미보고 수준은 `[미확인]` 안내 후 진행한다. 비-Neon 세션만 Neon 위임 불가 시 거부한다. SessionStart 보고 모델은 `.lazyneon/session-model.json`에 저장되어 분류 CLI와 공유된다. 호스트 매핑과 모델 성능은 [미측정]이다.
+라우팅의 단일 기준은 `skills/ulw/references/model-routing.json`이다. Neon이 판단하고 일반 작업의 Hydrogen 워커가 수집·구현한다. PII·민감정보·보안 감사·포렌식 판정·증거 자료가 있는 작업은 실행 단계와 병렬 워커까지 Neon으로 제한한다. 호스트가 보고한 Neon 세션이 필요한 티어 이상이면 게이트는 `in_session`, `pending`으로 배정한다. 분류는 검증 PASS가 아니며 실행 근거가 필요하다. Neon high 기준선이며 근거 있는 해당 게이트 승격 시에만 `xhigh 권장, high로 진행`을 안내한다. 미보고 수준은 `[미확인]` 안내 후 진행한다. 비-Neon 세션만 Neon 위임 불가 시 거부한다. SessionStart 보고 모델은 `.lazyneon/session-model.json`에 저장되어 분류 CLI와 공유된다. 호스트 매핑과 모델 성능은 [미측정]이다.
 
 Python 도구 전체를 실행하려면 Python 3.10 이상이 필요하다. doctor는 이전 버전 또는 버전 판독 실패를 경고한다.
 
@@ -40,9 +40,52 @@ node bin/lazyneon doctor
 
 `test:first`는 Node만으로 분류기·실제 훅·공백 및 한글 경로를 검증한다. 전체 `npm test`는 Python과 플랫폼별 셸 검증도 포함한다. Windows에서는 doctor의 live RPC 진단을 지원하지 않으며 정적 검사만 수행한다.
 
+## Install both (recommended)
+
+Core remains usable alone. Node 20+, Git, and Python 3.12+ are required for both.
+For hosts that forbid plugin-driven Git writes, install the companion manually
+with the following steps. Automatic cloning is not provided in this release.
+The clone/bootstrap and host registration flow still require installation testing.
+
+macOS (Terminal):
+
+```sh
+mkdir -p "$HOME/Plugins"
+cd "$HOME/Plugins"
+git clone https://github.com/ezbitbot-boop/lazyneon.git lazyneon
+git clone https://github.com/ezbitbot-boop/lazyneon-workspace.git lazyneon-workspace
+cd lazyneon-workspace
+python3.12 scripts/setup_forensic_env.py
+cd ../lazyneon
+LAZYNEON_OFFLINE=1 node bin/lazyneon doctor
+```
+
+Windows (PowerShell):
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE/Plugins"
+Set-Location "$env:USERPROFILE/Plugins"
+git clone https://github.com/ezbitbot-boop/lazyneon.git lazyneon
+git clone https://github.com/ezbitbot-boop/lazyneon-workspace.git lazyneon-workspace
+Set-Location lazyneon-workspace
+py -3.12 scripts/setup_forensic_env.py
+Set-Location ../lazyneon
+$env:LAZYNEON_OFFLINE = '1'
+node bin/lazyneon doctor
+```
+
+Register **both roots separately** in Antigravity's local plugin installation
+function: select Plugins/lazyneon, enable it; select Plugins/lazyneon-workspace,
+enable it; start a new session and check both runtime notices. Host-version-specific
+UI labels/registration CLI remain [미확인]; no undocumented registration command is
+assumed. Keep both folders under the same parent (folder names may differ: lookup
+uses plugin.json name). Core declares optional companion >=0.1.0; the supported pairing requires
+core >=0.3.0. Their version numbers need not match. Neither check installs or blocks.
+See [hook order](docs/hook-coexistence.md) and [measurement protocol](docs/measurement.md).
+
 ## Updates
 
-기본값은 알림만 제공하는 방식이다. SessionStart는 main 브랜치에서 origin/main을 최대 24시간에 한 번 확인한다. 원격 ref만 fetch하며 각 Git 호출은 5초 안에 끝낸다. 파일이나 HEAD를 자동으로 바꾸지 않는다. 새 커밋이 있으면 다음 한 줄을 세션에 넣는다.
+기본값은 알림만 제공하는 방식이다. SessionStart는 main 브랜치에서 origin/main을 최대 24시간에 한 번 확인한다. 원격 ref만 fetch하며 각 Git 호출은 5초, 세션 확인 전체는 12초 예산 안에 끝낸다. Git 최상위 경로와 플러그인 실제 경로가 다르면 확인·갱신을 거부한다. 잠금은 PID·생성시각을 기록하며 60초 이상 지난 죽은 소유자의 잠금만 회수한다. 파일이나 HEAD를 자동으로 바꾸지 않는다. 새 커밋이 있으면 다음 한 줄을 세션에 넣는다.
 
 ```text
 LazyNeon update available: <old7> → <new7> (N commits). Run: <one-line command>
@@ -133,7 +176,7 @@ python3 tools/smoke_test.py
 
 ## 한국어 작성과 선택적 영어 초안
 
-한국어 산문을 만드는 스킬은 `rules/korean/`의 동사·문장 부호·자연스러운 산문 규칙을 필요할 때만 읽는다. `rules/AGENTS.md`에는 한 줄 경로만 추가하며 SessionStart에 본문을 주입하지 않는다. 각 파일은 8,000B 이하이고 문장 부호 문서에 국립국어원 출처를 적었다. 규칙과 예문은 이 저장소에서 직접 작성했다.
+`ulw`, `programming`, `remove-ai-slops`는 한국어 산문을 만들 때 `rules/korean/`의 동사·문장 부호·자연스러운 산문 규칙을 필요할 때만 읽는다. `rules/AGENTS.md`에는 한 줄 경로만 추가하며 SessionStart에 본문을 주입하지 않는다. 각 파일은 8,000B 이하이고 문장 부호 문서에 국립국어원 출처를 적었다. 규칙과 예문은 이 저장소에서 직접 작성했다.
 
 Stop의 `scripts/reply_format_guard.mjs`는 한국어 최종 답변의 상투어, 연결어미 뒤 쉼표, 장식 이모지, 샌드위치 도입·마무리, 파일 산출 후 마지막 사용 안내를 점검한다. 코드 블록·코드 구간과 비한국어 답변은 제외한다. 최대 세 문제를 `injectSteps[].ephemeralMessage` 한 개에 담으며 종료를 차단하거나 경고를 파일에 저장하지 않는다. `LAZYNEON_REPLY_GUARD=off`로 끈다. 호스트가 Stop의 일회성 메모를 표시하는지는 별도 실기 확인이 필요하다. 파일 산출은 `produced_files` 배열 또는 현재 사용자 턴의 쓰기 도구 호출로 추정한다. 셸 내부의 임의 파일 쓰기는 판별하지 못한다.
 

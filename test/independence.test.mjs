@@ -37,8 +37,8 @@ test('compound implementation retains every Neon gate separately', () => {
  for (const role of ['plan', 'final_review', 'security_audit', 'forensic_verdict', 'pii_inject_docfmt', 'verdict_review']) {
   assert.ok(r.steps.some(s => s.role === role && s.model.startsWith('gemini-4-neon-')), role);
  }
- assert.ok(r.steps.some(s => s.role === 'implementation' && s.model === routing.roles.parallel_workers.model));
- assert.ok(r.steps.filter(s => s.model.includes('hydrogen')).every(s => ['implementation', 'long_execution', 'script_first', 'mechanical'].includes(s.role)));
+ assert.ok(r.steps.some(s => s.role === 'implementation' && s.model === routing.protected_materials.parallel_workers));
+ assert.ok(r.steps.every(s => !s.model.includes('hydrogen')), 'protected compound execution excludes the entire Hydrogen family');
 });
 test('final_review reachable independently from ordinary judgment', () => {
  for (const p of ['최종 리뷰', '최종 검토', 'final review', '승인']) assert.equal(classify(p).kind, 'final_review');
@@ -112,7 +112,7 @@ test('one rule budget, one STT procedure, declared unfinished modes and release 
  assert.equal(routing.roles.tool_first.stt_model, routing.roles.tool_first.model);
  for (const mode of ['swarm', 'boost', 'teamwork']) assert.equal(routing.modes[mode].status, '미구현');
  assert.match(routing.quota_guard.note, /observed limits block until recovery/);
- for (const file of ['plugin.json', 'package.json']) assert.equal(JSON.parse(fs.readFileSync(path.join(root, file))).version, '0.3.0');
+ for (const file of ['plugin.json', 'package.json']) assert.equal(JSON.parse(fs.readFileSync(path.join(root, file))).version, '0.4.0');
  for (const file of ['skills/ulw/SKILL.md', 'skills/ulw/references/dual-verify.md']) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /claude-opus|Claude Sonnet/);
 });
 

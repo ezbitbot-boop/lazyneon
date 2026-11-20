@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {companionLine,companionStatus} from './companion.mjs';
 import {pluginProvenance} from './provenance.mjs';
 import { autoUpdate } from './update.mjs';
 export { autoUpdate } from './update.mjs';
@@ -125,6 +126,7 @@ export function runtimeContext(payload = {}) {
  const {usage} = classifyTask(typeof task === "string" ? task : "", payload);
 	const lines = [
 		"## LazyNeon 런타임",
+  ...[companionLine(companionStatus(),'session')].filter(Boolean),
 		"",
 		`플러그인: lazyneon ${pluginVersion()} / commit ${pluginProvenance().commit ?? "unknown"} / 가드 팩 ${guardPackVersion()}`,
 		`플러그인 경로: ${root}`,

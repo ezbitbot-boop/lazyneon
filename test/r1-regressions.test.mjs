@@ -89,7 +89,7 @@ test('R9 merges require opt in, default checks refs, and offline always wins',t=
  const original=cp.spawnSync; const calls=[];
  cp.spawnSync=(cmd,args)=>{
   calls.push(args);
-  const stdout=args.includes('symbolic-ref')?'main\n':args.includes('remote')?'origin\n':args.includes('--absolute-git-dir')?dir:args.includes('rev-parse')?(args.includes('HEAD')?'a'.repeat(40):'b'.repeat(40)):args.includes('rev-list')?'1\n':'';
+  const stdout=args.includes('--show-toplevel')?root:args.includes('symbolic-ref')?'main\n':args.includes('remote')?'origin\n':args.includes('--absolute-git-dir')?dir:args.includes('rev-parse')?(args.includes('HEAD')?'a'.repeat(40):'b'.repeat(40)):args.includes('rev-list')?'1\n':'';
   return {status:0,stdout,stderr:''};
  }; syncBuiltinESMExports();
  try {

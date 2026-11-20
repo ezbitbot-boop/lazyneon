@@ -1,3 +1,15 @@
+# 0.4.0 — 2026-11-20
+
+- Optional Workspace companion manifest/version compatibility check in SessionStart and doctor; standalone core remains supported.
+- macOS/Windows combined clone, register and bootstrap instructions; hook coexistence contract and integration coverage.
+- Deterministic injection pre-filter over gate materials: whole-material untrusted boundary plus per-segment `locations` (only the offending line or HTML comment), in all six gate roles.
+- Family-wide Hydrogen exclusion for PII, security, forensic and evidence inputs, including compound execution and parallel workers.
+- Neon measurement protocol and harness inputs; no model calls or new performance claims.
+- update/provenance reject a parent Git repository; interrupted checks recover stale dead-owner locks and obey a session-wide time budget.
+- Recorded previously omitted update notices, explicit manual update CLI, opt-in auto-update, offline and throttle controls.
+- Recorded previously omitted Korean prose rules, advisory reply guard and opt-in English drafts for unprotected tasks; README names the three directly wired skills.
+- License metadata points to root LICENSE exceptions; frontend attribution describes files actually shipped in this fork without deleting provenance.
+
 # 0.3.0 — 2026-11-20
 
 - Independent LazyNeon core: .lazyneon state, LAZYNEON variables, core-owned guards.
