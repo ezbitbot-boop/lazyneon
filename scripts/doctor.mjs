@@ -113,6 +113,11 @@ const EXPECTED_HOOKS = {
         "type": "command",
         "command": "node ./scripts/stop_claim_guard.mjs",
         "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "node ./scripts/reply_format_guard.mjs",
+        "timeout": 30
       }
     ],
     "PreInvocation": [

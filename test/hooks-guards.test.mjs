@@ -42,7 +42,11 @@ test("#given core hooks.json #when inspected #then PreToolUse and PostToolUse ma
 		assert.ok(preMatcher.test(tool), `lazyneon PreToolUse matcher missing ${tool}`);
 		assert.ok(postMatcher.test(tool), `lazyneon PostToolUse matcher missing ${tool}`);
 	}
-	assert.equal(HOOKS_JSON.hooks.Stop?.length, 1);
+	// Each Stop script is registered exactly once (no duplicate stop_claim_guard); reply_format_guard is a separate warn-only hook.
+	const stopCommands = (HOOKS_JSON.hooks.Stop ?? []).map((h) => h.command);
+	assert.equal(stopCommands.filter((c) => c.includes("stop_claim_guard.mjs")).length, 1);
+	assert.equal(stopCommands.filter((c) => c.includes("reply_format_guard.mjs")).length, 1);
+	assert.equal(new Set(stopCommands).size, stopCommands.length);
 
 	// Check every registration, including any entries beyond the first matcher.
 	for (const event of ['PreToolUse', 'PostToolUse']) {
@@ -55,7 +59,7 @@ test("#given core hooks.json #when inspected #then PreToolUse and PostToolUse ma
 			}
 		}
 	}
-	assert.equal(HOOKS_JSON.hooks.Stop.length, 1, "core registers exactly one Stop hook");
+	assert.equal(HOOKS_JSON.hooks.Stop.length, 2, "core registers stop_claim_guard and the warn-only reply_format_guard, each once");
 });
 
 test("#given write_chunk_guard.mjs #when called with write_file({Path, Content}) or edit_file({Path, Replacement}) #then extracts Path and enforces chunk limits", () => {

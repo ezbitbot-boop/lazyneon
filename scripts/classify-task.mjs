@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { reasoningLanguage, ENGLISH_GUIDANCE } from './reasoning-language.mjs';
 import { promoted } from './run-policy.mjs';
 import {verifyHandoff} from './handoff-contract.mjs';
 import { acceptWorker } from './worker-contract.mjs';
@@ -348,12 +349,15 @@ export function classifyTask(prompt, hostPayload = {}) {
 		.map((k) => roles[task_kinds[k].role]?.rule)
 		.filter(Boolean);
 	const rules = [...new Set([...matchedRules, routing.common_rule].filter(Boolean))];
+ const reasoning_language = reasoningLanguage(prompt, kind, Object.keys(task_kinds).filter(k => scores[k] > 0));
+ if (reasoning_language === 'en') rules.push(ENGLISH_GUIDANCE);
 	const sttModel = Object.keys(task_kinds)
 		.filter((k) => (scores[k] ?? 0) > 0)
 		.map((k) => roles[task_kinds[k].role]?.stt_model)
 		.find(Boolean) ?? null;
 
 	return {
+                reasoning_language,
                 recommended_level: roleData.recommended_level,
                 usage: estimateUsage(longContext ? "long_context" : size, roleData.recommended_level, prompt),
                 document_input: documentInput,

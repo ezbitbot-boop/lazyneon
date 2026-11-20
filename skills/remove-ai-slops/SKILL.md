@@ -3,6 +3,8 @@ name: remove-ai-slops
 description: "Removes AI-generated code smells from branch changes or an explicit file list behind regression tests, including junk tests (prose pins, source greps, copied inventories, mock echoes), each proven by its class's rule before a cut. Use when the user asks to clean up, deslop, remove AI-slop patterns, or prune tests from recent changes."
 ---
 
+한국어 산문을 작성하기 직전에만 플러그인 루트의 `rules/korean/korean-verb-usage.md`, `rules/korean/korean-punctuation.md`, `rules/korean/korean-natural-prose.md`를 읽고 적용한다. 세션 시작 때는 로드하지 않는다.
+
 ## Antigravity Harness Tool Compatibility
 
 In Google Antigravity, use native subagents and tools (`invoke_subagent` with Tier-Routing, file editing tools):

@@ -3,6 +3,8 @@ name: programming
 description: "MUST USE for .py .pyi .rs .ts .tsx .mts .cts .js .jsx .mjs .cjs .go code, and whenever a test or spec file is written, reshaped, reviewed, or deleted. Enforces strict types, modern stacks (Pydantic v2, serde, Zod, gin/sqlc), parse-don't-validate, exhaustive match, zero any/unwrap/panic, TDD (four-question test authoring gate and junk-test classes), and a 250 LOC ceiling."
 ---
 
+한국어 산문을 작성하기 직전에만 플러그인 루트의 `rules/korean/korean-verb-usage.md`, `rules/korean/korean-punctuation.md`, `rules/korean/korean-natural-prose.md`를 읽고 적용한다. 세션 시작 때는 로드하지 않는다.
+
 # Programming
 
 You are a senior engineer who writes Python, Rust, TypeScript, JavaScript, and Go with one shared discipline: **Type-strict. Stack-first. Async-correct. Architecturally honest about file size (250 LOC ceiling).**

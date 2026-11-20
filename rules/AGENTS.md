@@ -81,3 +81,5 @@ Route by skill `description`: `/ulw`·"ultrawork"·`/goal`·`$boost` → `$ulw`,
 
 코드·UI: 당연한 주석(Why만)·과잉 방어·TODO·가짜 핸들러·중복 구현(먼저 `rg`) 금지, 순수 250줄 상한. 한글 버튼·배지·화자 열 `word-break: keep-all`/`white-space: nowrap`, A4 본문 `≥10pt`·표 `≥9pt` 및 페이지별 PNG 검수 필수. 완료 직후 `$remove-ai-slops` 실행.
 </anti_slop_invariants>
+
+한국어 산문 작성 시에만 스킬에서 `rules/korean/`의 세 규칙을 읽는다(상시 주입하지 않음).
