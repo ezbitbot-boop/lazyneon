@@ -2,7 +2,7 @@
 
 - Add ordinary public access methods: route index, response validation, official alternates, consent-gated reader and optional guarded Playwright rendering.
 - Keep client/case searches local; stop at authentication/rate limits; record metadata-only local observations.
-- Add public research route families (70 routes) and offline regressions. Live check 2026-11-20: 30 routes returned real data (verified), keyed routes confirmed reachable but need keys, Reddit and archive.today unavailable from scripts, KIPRIS endpoint unconfirmed.
+- Add public research route families (70 routes) and offline regressions. Live check 2026-11-20: 26 external routes returned real data (verified; the 4 local routes need no network), keyed routes confirmed reachable but need keys, Reddit and archive.today unavailable from scripts, KIPRIS endpoint unconfirmed.
 - Adapt selected insane-search 8221189 methods with attribution; exclude TLS impersonation, WAF header grids and CAPTCHA solving.
 
 # 0.4.2 — 2026-11-20
