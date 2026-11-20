@@ -52,7 +52,7 @@ test('R3 L2 current titles and receipt targets retain source records', () => {
 });
 test('R3 L4 core hook test makes no fictitious workspace assertion', () => {
  const s=read('test/hooks-guards.test.mjs'); assert.doesNotMatch(s,/CORE_ROOT = ROOT|wsHooks|both hooks\.json|workspace PreToolUse/);
- assert.match(s,/core registers exactly one Stop hook/);
+ assert.match(s,/core registers stop_claim_guard and the warn-only reply_format_guard, each once/);
 });
 test('R3 L5 tests only use Node 20.0 compatible module paths', () => {
  for(const f of fs.readdirSync(path.join(root,'test')).filter(f=>f.endsWith('.mjs'))) assert.ok(!read(`test/${f}`).includes('import.meta.'+'dirname'),f);
