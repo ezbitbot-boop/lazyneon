@@ -30,6 +30,15 @@ function fetchHead(dir, deadline) {
  git(dir, ['fetch', '--no-tags', '--no-recurse-submodules', 'origin', 'refs/heads/main'],deadline);
  return git(dir, ['rev-parse', 'FETCH_HEAD'],deadline);
 }
+// --no-overwrite-ignore: the clean check does not see ignored files, so a
+// fast-forward must never replace an ignored local file (e.g. config/issuer.json).
+function fastForward(dir, after, deadline) {
+ try { git(dir, ['merge', '--ff-only', '--no-overwrite-ignore', after], deadline); }
+ catch (error) {
+  if (/would be overwritten|untracked working tree files/i.test(error.message)) throw Error(`Update would overwrite ignored local files; move them aside and retry:\n${error.message}`);
+  throw error;
+ }
+}
 function clean(dir, deadline) {
  if (git(dir, ['status', '--porcelain', '--untracked-files=all'],deadline)) throw Error('Local changes present; commit or remove them before updating');
 }
@@ -48,7 +57,7 @@ export function updatePlugin(dir = root, env = process.env, out = process.stdout
  // Recheck after the network operation; never stash, reset, rebase or force.
  clean(dir);
  if (git(dir, ['rev-parse', 'HEAD']) !== before) throw Error('HEAD changed during update; retry');
- git(dir, ['merge', '--ff-only', after]);
+ fastForward(dir, after);
  out.write(`LazyNeon updated ${before.slice(0,7)}..${after.slice(0,7)}\n`);
 }
 
@@ -77,11 +86,11 @@ export function autoUpdate(dir = root, env = process.env, errOut = process.stder
    try {
     clean(dir,deadline);
     if (git(dir, ['rev-parse', 'HEAD'],deadline) !== before) throw Error('local commits differ');
-    git(dir, ['merge', '--ff-only', after],deadline);
+    fastForward(dir, after, deadline);
     errOut.write(`LazyNeon updated ${before.slice(0,7)}..${after.slice(0,7)} (${count} commits)\n`);
     return;
    } catch (error) {
-    const reason = /local changes/i.test(error.message) ? 'local changes present' : 'local commits differ';
+    const reason = /local changes/i.test(error.message) ? 'local changes present' : /ignored local files/i.test(error.message) ? 'ignored local files would be overwritten' : 'local commits differ';
     errOut.write(`LazyNeon: ${count} updates on origin/main; ${reason}, not auto-updated. Run: ${command}\n`);
    }
   }
