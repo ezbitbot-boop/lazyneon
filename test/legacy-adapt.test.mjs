@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { classifyTask } from '../scripts/classify-task.mjs';
 const load = name => import(`../scripts/${name}.mjs`);
-const temp = () => fs.mkdtempSync('/private/tmp/lazy-adapt-');
+const temp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lazy-adapt-'));
 test('A1 worker acceptance requires reproduction receipts and preserves trailing unresolved', async () => {
  const { acceptWorker } = await load('worker-contract');
  const dir=temp();
