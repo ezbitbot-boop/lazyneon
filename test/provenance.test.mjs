@@ -22,6 +22,18 @@ test('provenance helper reports plugin version commit dirty and unknown archive'
  fs.writeFileSync(path.join(dir,'plugin.json'),'{"version":"archive"}');
  assert.deepEqual(pluginProvenance(dir),{version:'archive',commit:null,dirty:null});
 });
+test('provenance recognises a plugin root that is its own Git top-level under the temp directory',async t=>{
+ // GitHub Windows runners: os.tmpdir() is an 8.3 short path (C:\Users\RUNNER~1\...) while git --show-toplevel prints
+ // the long path, and NTFS ignores case. Every spelling of the plugin root must still count as its own checkout.
+ const {pluginProvenance}=await import('../scripts/provenance.mjs');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'la-toplevel-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const git=(...args)=>{const r=spawnSync('git',['-C',dir,'-c','user.name=LazyNeon test','-c','user.email=test@example.com','-c','commit.gpgsign=false',...args],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+ fs.writeFileSync(path.join(dir,'plugin.json'),'{"version":"toplevel"}\n');
+ git('init','-q');git('add','plugin.json');git('commit','-q','--no-verify','-m','init');
+ const expected={version:'toplevel',commit:git('rev-parse','HEAD'),dirty:false};
+ assert.deepEqual(pluginProvenance(dir),expected);
+ if(process.platform==='win32')assert.deepEqual(pluginProvenance(dir.toUpperCase()),expected);
+});
 test('provenance covers core evidence reports and research artifacts',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'la-reports-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'report'),'evidence');
