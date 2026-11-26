@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,30 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const env = { ...process.env, LAZYNEON_OFFLINE: '1', LAZYNEON_NO_AUTO_UPDATE: '1', PYTHONDONTWRITEBYTECODE: '1' };
 function tmp(t) { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'neon-r3-')); t.after(() => fs.rmSync(d, {recursive:true, force:true})); return d; }
 function run(script, args=[], payload={}, cwd=root) { return spawnSync(process.execPath, [script,...args], {cwd,input:JSON.stringify(payload),encoding:'utf8',env,timeout:20000}); }
+// The M2 entries print plugin provenance, whose dirty flag is `git status` of the plugin root. Other test files create
+// and delete scratch directories inside the shared checkout while this file runs, so two runs of one entry could see
+// different dirty states. They run from a private Git copy of the plugin instead, made once for this file.
+let pluginCopy, pluginCopyDir;
+after(() => { if (pluginCopyDir) fs.rmSync(pluginCopyDir, {recursive:true, force:true}); });
+function privatePlugin() {
+ if (pluginCopy) return pluginCopy;
+ pluginCopyDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'neon-r3-plugin-')));
+ const copy = path.join(pluginCopyDir, 'lazyneon');
+ const git = (cwd, args) => { const r = spawnSync('git', ['-C',cwd,...args], {encoding:'utf8',maxBuffer:64<<20}); assert.equal(r.status,0,r.stderr); return r.stdout; };
+ const list = args => git(root, ['ls-files','-z',...args]).split('\0').filter(Boolean);
+ const tracked = list([]), trackedDirs = new Set(tracked.map(file => file.split('/')).filter(parts => parts.length > 1).map(parts => parts[0]));
+ // New, not yet added files count when they sit in a tracked directory (scripts/, skills/, ...). Untracked root-level
+ // entries are left out: they are the other test files' scratch directories, appearing and vanishing meanwhile.
+ const added = list(['--others','--exclude-standard']).filter(file => trackedDirs.has(file.split('/')[0]));
+ for (const file of [...tracked, ...added]) {
+  const source = path.join(root, file);
+  if (!fs.existsSync(source)) continue; // tracked but deleted in the working tree
+  fs.mkdirSync(path.dirname(path.join(copy, file)), {recursive:true}); fs.copyFileSync(source, path.join(copy, file));
+ }
+ git(copy, ['init','-q']); git(copy, ['add','-A']);
+ git(copy, ['-c','user.name=LazyNeon test','-c','user.email=test@example.com','-c','commit.gpgsign=false','commit','-q','--no-verify','-m','private copy']);
+ return pluginCopy = {root: copy, commit: git(copy, ['rev-parse','HEAD']).trim()};
+}
 
 test('R3 M1 node_modules is absent and ignored as a file or directory', t => {
  const dir=tmp(t);
@@ -28,10 +52,11 @@ for (const [script,args,payload] of [
  ['selfcheck_stats.mjs',['--help'],{}], ['upstream_radar.mjs',['audit','--json'],{}],
  ['lsp_diagnostics.mjs',['--help'],{}],
 ]) test(`R3 M2 linked entry ${script}`, t => {
- const d=tmp(t); const link=path.join(d,'linked'); fs.symlinkSync(root,link,process.platform==='win32'?'junction':'dir');
+ const plugin=privatePlugin();
+ const d=tmp(t); const link=path.join(d,'linked'); fs.symlinkSync(plugin.root,link,process.platform==='win32'?'junction':'dir');
  fs.mkdirSync(path.join(d,'source')); fs.writeFileSync(path.join(d,'broken.json'),'{bad'); const p={...payload,cwd:d};
  const started = Date.now();
- const real=run(path.join(root,'scripts',script),args,p,d); const linked=run(path.join(link,'scripts',script),args,p,d);
+ const real=run(path.join(plugin.root,'scripts',script),args,p,d); const linked=run(path.join(link,'scripts',script),args,p,d);
  const finished = Date.now();
  assert.equal(linked.status,real.status,linked.stderr); assert.ok(linked.stdout+linked.stderr,'entry must execute');
  if (script === 'session_start.mjs') {
@@ -51,6 +76,8 @@ for (const [script,args,payload] of [
  assert.equal(linked.stderr,real.stderr);
  if(script==='json_schema_guard.mjs') { assert.equal(linked.status,1); assert.match(linked.stderr,/FAIL/); }
  if(script==='session_start.mjs') assert.ok(JSON.parse(linked.stdout).injectSteps.length);
+ // Both runs must report the private copy's own commit and clean tree, not an unknown or shared-checkout state.
+ if(script==='codegraph.mjs') assert.deepEqual(JSON.parse(linked.stdout).plugin,{version:JSON.parse(read('plugin.json')).version,commit:plugin.commit,dirty:false});
 });
 test('R3 M4 smoke validates the repository skill inventory', () => {
  const r=spawnSync(process.platform==='win32'?'python':'python3',['tools/smoke_test.py'],{cwd:root,encoding:'utf8',env,timeout:120000});
