@@ -79,9 +79,16 @@ for (const [script,args,payload] of [
  // Both runs must report the private copy's own commit and clean tree, not an unknown or shared-checkout state.
  if(script==='codegraph.mjs') assert.deepEqual(JSON.parse(linked.stdout).plugin,{version:JSON.parse(read('plugin.json')).version,commit:plugin.commit,dirty:false});
 });
-test('R3 M4 smoke validates the repository skill inventory', () => {
- const r=spawnSync(process.platform==='win32'?'python':'python3',['tools/smoke_test.py'],{cwd:root,encoding:'utf8',env,timeout:120000});
+// The smoke test renders 9 PNGs (concept sheet, render_png, 7 web icons). GitHub's runner images ship no rsvg-convert,
+// cairosvg or Inkscape, so every PNG is a headless Chrome launch, and on the macOS runners that launch is slow: M4 took
+// 33-119 s there (one run hit the old 120 s limit), against 10-15 s on ubuntu, 25-70 s on Windows and 7 s on a local
+// Mac forced onto Chrome (1.6 s with rsvg-convert). macOS CI gets 300 s, 2.5 times its slowest pass; the limit stays a
+// hang guard. The per-step seconds and the renderer go to the test log.
+const SMOKE_TIMEOUT_MS = process.platform === 'darwin' && process.env.CI ? 300_000 : 120_000;
+test('R3 M4 smoke validates the repository skill inventory', t => {
+ const r=spawnSync(process.platform==='win32'?'python':'python3',['tools/smoke_test.py'],{cwd:root,encoding:'utf8',env,timeout:SMOKE_TIMEOUT_MS});
  assert.equal(r.status,0,r.stdout+r.stderr);
+ for(const line of r.stdout.split(/\r?\n/)) if(line.trim()) t.diagnostic(line);
  assert.doesNotMatch(read('tools/smoke_test.py'),/len\(skill_dirs\)\s*==\s*\d+/);
 });
 test('R3 L1 README states notify-only SessionStart and disabling precedence', () => {
