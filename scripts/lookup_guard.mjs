@@ -4,7 +4,7 @@
  * Generic guard owned by LazyNeon core.
  *
  * 실제 사례(2026-11-01): import 경로를 잘못 짚은 조회 실패를 "기능이 없다"로 보고했다.
- * 실패한 조회는 <workspace>/.lazyneon/lookups.jsonl 에 남고, stderr 의 "[LOOKUP GUARD] WARN" 을
+ * 실패한 조회는 <workspace>/.lazyneon/lookups.jsonl 에 남고(워크스페이스를 모르면 기록하지 않고 경고만 한다), stderr 의 "[LOOKUP GUARD] WARN" 을
  * post_tool_feedback.mjs wrap 이 다음 모델 호출 전에 주입한다. 항상 exit 0 · stdout {} (PostToolUse 계약).
  * Stop 에서는 stop_claim_guard.mjs 가 이 가드를 한 번 더 부른다: 도구 하나가 실패하고 바로 답하며 끝난 턴은
  * PostToolUse 시점에 그 출력이 아직 transcript 에 없어 기록이 빠졌다(Windows 실기 2026-11-03). 같은 step 은 한 번만 기록한다.
@@ -12,7 +12,6 @@
 import { resolveWorkspace } from './workspace-path.mjs';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
-import os from 'node:os';
 import path from 'node:path';
 import { stdin } from 'node:process';
 
@@ -157,12 +156,13 @@ async function main() {
 	} catch {
 		p = {};
 	}
-	const ws = resolveWorkspace(p, os.homedir());
-	const ledger = path.join(ws, '.lazyneon', 'lookups.jsonl');
+	// Unknown workspace → warn only. Failed commands may name case paths, so they never go to the home folder.
+	const ws = resolveWorkspace(p, null);
+	const ledger = ws ? path.join(ws, '.lazyneon', 'lookups.jsonl') : null;
 	const conv = p.conversationId || null;
 	let seen = new Set();
 	try {
-		seen = new Set(fs.readFileSync(ledger, 'utf8').split('\n').filter(Boolean).map((l) => {
+		seen = new Set(fs.readFileSync(ledger ?? '', 'utf8').split('\n').filter(Boolean).map((l) => {
 			try {
 				const e = JSON.parse(l);
 				return `${e.conversationId}#${e.step}`;
@@ -175,11 +175,13 @@ async function main() {
 	}
 	const fresh = failedSteps(p).filter((f) => !seen.has(`${conv}#${f.step}`));
 	if (fresh.length) {
-		try {
-			fs.mkdirSync(path.dirname(ledger), { recursive: true });
-			for (const f of fresh) fs.appendFileSync(ledger, `${JSON.stringify({ ts: new Date().toISOString(), conversationId: conv, ...f })}\n`);
-		} catch {
-			// 기록 실패는 무시
+		if (ledger) {
+			try {
+				fs.mkdirSync(path.dirname(ledger), { recursive: true });
+				for (const f of fresh) fs.appendFileSync(ledger, `${JSON.stringify({ ts: new Date().toISOString(), conversationId: conv, ...f })}\n`);
+			} catch {
+				// 기록 실패는 무시
+			}
 		}
 		if (process.env.LAZYNEON_LOOKUP_WARN !== '0') {
 			const lines = fresh.map((f) => `- ${f.what} → ${f.failure}`).join('\n');
