@@ -69,6 +69,10 @@ function setupRepo(tmp) {
 	exec(`git -C "${work}" config user.email "test@example.com"`, tmp);
 	exec(`git -C "${work}" config user.name "Test"`, tmp);
 	fs.writeFileSync(path.join(work, "README.md"), "init\n", "utf8");
+	// Pin LF like the real repo's .gitattributes (*.md text eol=lf). Without it, core.autocrlf=true
+	// (set on GitHub Windows runners) checks README.md out as CRLF, and a test that rewrites it as
+	// "init\n" leaves a line-ending-only modification that git status reports as a local change.
+	fs.writeFileSync(path.join(work, ".gitattributes"), "* text=auto eol=lf\n", "utf8");
 	exec(`git -C "${work}" add .`, tmp);
 	exec(`git -C "${work}" commit -m "init"`, tmp);
 	exec(`git -C "${work}" remote add origin "${origin}"`, tmp);
