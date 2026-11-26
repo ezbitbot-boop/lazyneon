@@ -225,12 +225,35 @@ test("insaneSearchPaths finds the default install and lets env override it", () 
 		assert.deepEqual(insaneSearchPaths({}, home), { engineDir: "", python: "python3", standingConsent: false });
 		const base = path.join(home, ".local", "share", "insane-search");
 		fs.mkdirSync(path.join(base, "skills", "insane-search", "engine"), { recursive: true });
-		fs.mkdirSync(path.join(base, ".venv", "bin"), { recursive: true });
-		fs.writeFileSync(path.join(base, ".venv", "bin", "python"), "");
-		assert.deepEqual(insaneSearchPaths({}, home), { engineDir: path.join(base, "skills", "insane-search"), python: path.join(base, ".venv", "bin", "python"), standingConsent: false });
+		const venvPython = process.platform === "win32" ? path.join(base, ".venv", "Scripts", "python.exe") : path.join(base, ".venv", "bin", "python");
+		fs.mkdirSync(path.dirname(venvPython), { recursive: true });
+		fs.writeFileSync(venvPython, "");
+		assert.deepEqual(insaneSearchPaths({}, home), { engineDir: path.join(base, "skills", "insane-search"), python: venvPython, standingConsent: false });
 		fs.writeFileSync(path.join(base, "STANDING_CONSENT"), "public web research");
 		assert.equal(insaneSearchPaths({}, home).standingConsent, true);
 		assert.equal(insaneSearchPaths({ ULW_INSANE_SEARCH_DIR: "/x" }, home).engineDir, "/x");
+	} finally {
+		fs.rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("insaneSearchPaths takes the venv Python from the platform's layout: Scripts\\python.exe on Windows, bin/python elsewhere", () => {
+	const home = fs.mkdtempSync(path.join(os.tmpdir(), "is-venv-"));
+	try {
+		const venv = path.join(home, ".local", "share", "insane-search", ".venv");
+		const windows = path.join(venv, "Scripts", "python.exe"), posix = path.join(venv, "bin", "python");
+		const install = (file) => {
+			fs.rmSync(venv, { recursive: true, force: true });
+			fs.mkdirSync(path.dirname(file), { recursive: true });
+			fs.writeFileSync(file, "");
+		};
+		install(windows);
+		assert.equal(insaneSearchPaths({}, home, "win32").python, windows);
+		for (const platform of ["linux", "darwin"]) assert.equal(insaneSearchPaths({}, home, platform).python, "python3");
+		install(posix);
+		for (const platform of ["linux", "darwin"]) assert.equal(insaneSearchPaths({}, home, platform).python, posix);
+		assert.equal(insaneSearchPaths({}, home, "win32").python, "python3");
+		assert.equal(insaneSearchPaths({ ULW_INSANE_SEARCH_PYTHON: "py" }, home, "win32").python, "py");
 	} finally {
 		fs.rmSync(home, { recursive: true, force: true });
 	}

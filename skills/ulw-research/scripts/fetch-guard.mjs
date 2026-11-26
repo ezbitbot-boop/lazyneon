@@ -167,11 +167,15 @@ export function looksBlocked(status, text = "") {
  * blocked the plain request. It imitates browsers to get past bot walls, which can breach a site's terms, so callers must
  * pass --allow-bypass and point ULW_INSANE_SEARCH_DIR at the engine's skill folder. Never used for case material.
  */
-/** Default install location (~/.local/share/insane-search); ULW_INSANE_SEARCH_DIR / ULW_INSANE_SEARCH_PYTHON override it. */
-export function insaneSearchPaths(env = process.env, home = homedir()) {
+/**
+ * Default install location (~/.local/share/insane-search); ULW_INSANE_SEARCH_DIR / ULW_INSANE_SEARCH_PYTHON override it.
+ * A venv keeps its interpreter in Scripts\python.exe on Windows and in bin/python elsewhere.
+ */
+export function insaneSearchPaths(env = process.env, home = homedir(), platform = process.platform) {
 	const base = join(home, ".local", "share", "insane-search")
 	const engineDir = env.ULW_INSANE_SEARCH_DIR || (existsSync(join(base, "skills", "insane-search", "engine")) ? join(base, "skills", "insane-search") : "")
-	const python = env.ULW_INSANE_SEARCH_PYTHON || (existsSync(join(base, ".venv", "bin", "python")) ? join(base, ".venv", "bin", "python") : "python3")
+	const venvPython = platform === "win32" ? join(base, ".venv", "Scripts", "python.exe") : join(base, ".venv", "bin", "python")
+	const python = env.ULW_INSANE_SEARCH_PYTHON || (existsSync(venvPython) ? venvPython : "python3")
 	// A STANDING_CONSENT file next to the engine records the user's standing consent for public web research.
 	const consentFile = join(base, "STANDING_CONSENT")
 	return { engineDir, python, standingConsent: existsSync(consentFile) }
