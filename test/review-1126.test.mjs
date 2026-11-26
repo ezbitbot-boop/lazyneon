@@ -61,3 +61,42 @@ test('lookup guard warns but writes no ledger to home when the workspace is unkn
 	assert.deepEqual(fs.readdirSync(home), []);
 	assert.deepEqual(fs.readdirSync(cwd), []);
 });
+
+const guardEnv = { LAZYNEON_DISABLE_WRITE_CHUNK_GUARD: '0', LAZYNEON_MAX_WRITE_BYTES: '', LAZYNEON_MAX_WRITE_LINES: '', ANTIGRAVITY_TOOL_INPUT: '', TOOL_INPUT: '' };
+const nest = (leaf, levels) => { let node = leaf; for (let i = 0; i < levels; i++) node = { k: node }; return node; };
+const assertAllowedWithWarning = (r, pattern) => {
+	assert.equal(r.status, 0, r.stderr);
+	assert.equal(r.stdout, '{}\n');
+	assert.match(r.stderr, /\[WRITE CHUNK GUARD\] WARN: .*fails open/);
+	assert.match(r.stderr, pattern);
+};
+
+test('write chunk guard allows an unrecognised payload shape with a warning instead of counting the whole payload', () => {
+	assertAllowedWithWarning(runScript('write_chunk_guard.mjs', { conversationId: 'c', transcript: 'x\n'.repeat(400) }, guardEnv), /unrecognised payload shape/);
+	assertAllowedWithWarning(runScript('write_chunk_guard.mjs', '{broken', guardEnv), /not JSON/);
+});
+
+test('write chunk guard allows arguments nested past the inspection depth with a warning', () => {
+	const r = runScript('write_chunk_guard.mjs', { toolCall: { name: 'write_file', args: nest('x\n'.repeat(400), 12) } }, guardEnv);
+	assertAllowedWithWarning(r, /deeper than 8 levels/);
+});
+
+test('write chunk guard allows with a warning when the check itself throws', () => {
+	const r = spawnSync(process.execPath, ['--import', 'data:text/javascript,Buffer.byteLength=()=>{throw new Error("synthetic failure")}', path.join(root, 'scripts', 'write_chunk_guard.mjs')], {
+		cwd: root, encoding: 'utf8', input: JSON.stringify({ toolCall: { name: 'write_file', args: { Path: 'a.txt', Content: 'small' } } }), env: { ...env, ...guardEnv },
+	});
+	assertAllowedWithWarning(r, /cannot inspect write payload: synthetic failure/);
+});
+
+test('write chunk guard still denies real oversize writes, including flat and partly too-deep payloads', () => {
+	for (const payload of [
+		{ toolCall: { name: 'write_file', args: { Path: 'a.txt', Content: 'x\n'.repeat(300) } } },
+		{ TargetFile: 'a.txt', CodeContent: 'x'.repeat(30000), transcript: 'not counted' },
+		{ toolCall: { name: 'write_file', args: { Content: 'y\n'.repeat(300), extra: nest('z', 12) } } },
+	]) {
+		const r = runScript('write_chunk_guard.mjs', payload, guardEnv);
+		assert.equal(r.status, 1, r.stderr);
+		assert.equal(JSON.parse(r.stdout).decision, 'deny');
+		assert.doesNotMatch(r.stderr, /WARN/);
+	}
+});
