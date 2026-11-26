@@ -13,7 +13,7 @@ import { resolveWorkspace } from './workspace-path.mjs';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { stdin } from 'node:process';
+import { readStdin } from './read-stdin.mjs';
 
 const LOOKUP_CMD_RE = /(^|[\s;&|(])(grep|rg|ag|find|fd|ls|cat|head|tail|stat|test\s+-[edf]|which|command\s+-v|type|mdfind|locate|sqlite3|pip3?\s+show|python3?\s+-c\s+["']?\s*import|curl|wget|git\s+(show|log|grep|ls-files)|dir|Test-Path|Get-ChildItem|Get-Item|Get-Content|Select-String|Get-Command|Resolve-Path|gci|gc|sls|where(?:\.exe)?|findstr)\b/i;
 const NON_LOOKUP_PRIMARY_RE = /^\s*(?:(?:\$env:[^;\n]+;\s*)|(?:[A-Za-z_]\w*=\S+\s+))*(?:["']?(?:[^"'\n]*[\\/])?Google\\?\s+Chrome(?:["'.]|\b)|cp\b|mv\b|git\s+(?:-\S+\s+)*clone\b)/i;
@@ -35,39 +35,6 @@ const EXIT_CODE_RE = /exited with code \d+|exit (?:code|status) \d+/gi;
 const READ_FAIL_RE = /^(?:cat|head|tail|type|more|Get-Content|gc)\s*:.*|ItemNotFoundException|PathNotFound|ObjectNotFound|cannot find the (?:file|path) specified|지정된 (?:파일을|경로를) 찾을 수 없|exited with code [12]\b/im;
 
 const TAIL_FALLBACK_BYTES = 512 * 1024;
-
-function readStdin(limitMs = 1500) {
-	return new Promise((resolve) => {
-		if (stdin.isTTY) {
-			resolve('');
-			return;
-		}
-		const chunks = [];
-		let settled = false;
-		const finish = (value) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try { stdin.pause(); } catch {}
-			stdin.removeAllListeners();
-			resolve(value);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
-		if (typeof timer.unref === 'function') timer.unref();
-		stdin.on('data', (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString('utf8').trim();
-			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
-		stdin.on('error', () => finish(''));
-	});
-}
 
 function transcriptPath(p) {
 	const cands = [];

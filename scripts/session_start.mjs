@@ -16,7 +16,7 @@ import { SETTINGS, settings as localSettings } from './settings.mjs';
 import { isMainModule } from './is-main.mjs';
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { stdin } from "node:process";
+import { readStdin } from './read-stdin.mjs';
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,38 +24,6 @@ const SCOPE_MAX_LINES = 12;
 const PINS_MAX_LINES = 20;
 
 const STDIN_WAIT_MS = 1500;
-
-function readStdin(limitMs = STDIN_WAIT_MS) {
-	return new Promise((resolve) => {
-		if (stdin.isTTY) return resolve("");
-		const chunks = [];
-		let settled = false;
-		const finish = (val) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try {
-				stdin.pause();
-			} catch {}
-			stdin.removeAllListeners();
-			resolve(val);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString("utf8")), limitMs);
-		if (typeof timer.unref === "function") timer.unref();
-		stdin.on("data", (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString("utf8").trim();
-			if ((acc.startsWith("{") && acc.endsWith("}")) || (acc.startsWith("[") && acc.endsWith("]"))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on("end", () => finish(Buffer.concat(chunks).toString("utf8")));
-		stdin.on("error", () => finish(""));
-	});
-}
 
 function parsePayload(raw) {
 	try {

@@ -10,7 +10,7 @@
  */
 import { hostLimits, trustedHost } from "./long-output.mjs";
 import { settings } from "./settings.mjs";
-import { stdin } from "node:process";
+import { readStdin } from "./read-stdin.mjs";
 import { isReadOnlyTool } from "./hook_targets.mjs";
 
 const DEFAULT_MAX_BYTES = 24 * 1024;
@@ -19,38 +19,6 @@ const DEFAULT_MAX_LINES = 250;
 // A complete JSON payload resolves at once (early resolve below), so the cap only matters when the host
 // sends late. At 50ms a late payload was dropped and the write was allowed unchecked, hence 1500ms.
 const STDIN_WAIT_MS = 1500;
-
-function readStdin(limitMs = STDIN_WAIT_MS) {
-	return new Promise((resolve) => {
-		if (stdin.isTTY) return resolve("");
-		const chunks = [];
-		let settled = false;
-		const finish = (val) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try {
-				stdin.pause();
-			} catch {}
-			stdin.removeAllListeners();
-			resolve(val);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString("utf8")), limitMs);
-		if (typeof timer.unref === "function") timer.unref();
-		stdin.on("data", (c) => {
-			chunks.push(c);
-			const acc = Buffer.concat(chunks).toString("utf8").trim();
-			if ((acc.startsWith("{") && acc.endsWith("}")) || (acc.startsWith("[") && acc.endsWith("]"))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on("end", () => finish(Buffer.concat(chunks).toString("utf8")));
-		stdin.on("error", () => finish(""));
-	});
-}
 
 function tryParseJson(text) {
 	if (!text || typeof text !== "string") return undefined;

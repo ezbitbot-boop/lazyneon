@@ -42,6 +42,7 @@ import { hookTargets } from './hook_targets.mjs';
 import { resolveWorkspace } from './workspace-path.mjs';
 import { settings } from './settings.mjs';
 import { isMainModule } from './is-main.mjs';
+import { readStdin } from './read-stdin.mjs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -59,40 +60,6 @@ function recordFailedLookups(raw) {
 	if (!fs.existsSync(guard)) return;
 	const result = spawnSync(process.execPath, [guard], { input: raw, encoding: 'utf8', timeout: 4000 });
 	if (result.stderr) process.stderr.write(result.stderr);
-}
-
-function readStdin(limitMs = 1500) {
-	return new Promise((resolve) => {
-		const { stdin } = process;
-		if (stdin.isTTY) {
-			resolve('');
-			return;
-		}
-		const chunks = [];
-		let settled = false;
-		const finish = (value) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try { stdin.pause(); } catch {}
-			stdin.removeAllListeners();
-			resolve(value);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
-		if (typeof timer.unref === 'function') timer.unref();
-		stdin.on('data', (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString('utf8').trim();
-			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
-		stdin.on('error', () => finish(''));
-	});
 }
 
 function resolveTranscriptPaths(payload) {

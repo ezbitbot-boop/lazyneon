@@ -7,6 +7,7 @@ import {resolveWorkspace} from './workspace-path.mjs';
 import {isMainModule} from './is-main.mjs';
 import {withinPath} from './same-path.mjs';
 import {fileURLToPath} from 'node:url';
+import {readStdin} from './read-stdin.mjs';
 // State belongs to an explicit workspace/task, never to the plugin launcher cwd.
 export function usageGuard(payload={}) {
  try {return observeUsage(payload);} catch(error) {return {blocked:false,warning:`[미확인] usage state: ${error.message}`};}
@@ -57,13 +58,8 @@ function observeUsage(payload) {
   warning:cap_reached?'warning: replan cap reached':decision.blocked?`warning: ${decision.reason}`:payload.replan?'warning: replan recorded':run.usage?.warning};
 }
 if(isMainModule(import.meta.url)) {
- let input='';
- const payload=await new Promise(resolve=>{
-  const finish=()=>{clearTimeout(timer);process.stdin.pause();try {resolve(JSON.parse(input||'{}'));}catch {resolve({});}};
-  const timer=setTimeout(finish,1500);
-  process.stdin.on('data',chunk=>{input+=chunk;try {JSON.parse(input);finish();}catch {}});
-  process.stdin.on('end',finish);process.stdin.on('error',finish);
- });
+ let payload={};
+ try {payload=JSON.parse((await readStdin(1500))||'{}');} catch {}
  try {
   const result=usageGuard(payload);
   console.log('{}');

@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isMainModule } from './is-main.mjs';
+import { readStdin } from './read-stdin.mjs';
 
 // Style hints are ephemeral and never request Stop continuation or write state.
 export function proseOnly(text) {
@@ -81,16 +82,6 @@ export function guardReply(payload, env = process.env) {
  const files = (Array.isArray(payload.produced_files) && payload.produced_files.length > 0) || turn.some(writesFile);
  const issues = replyIssues(message, files);
  return issues.length ? { injectSteps: [{ ephemeralMessage: `한국어 답변 점검: ${issues.join('; ')}` }] } : {};
-}
-function readStdin() {
- return new Promise(resolve => {
-  let raw = '';
-  const finish = () => { clearTimeout(timer); process.stdin.pause(); process.stdin.removeAllListeners(); resolve(raw); };
-  const timer = setTimeout(finish, 1500); timer.unref();
-  process.stdin.setEncoding('utf8');
-  process.stdin.on('data', chunk => { raw += chunk; try { JSON.parse(raw); finish(); } catch {} });
-  process.stdin.on('end', finish); process.stdin.on('error', finish);
- });
 }
 if (isMainModule(import.meta.url)) {
  let result = {};
