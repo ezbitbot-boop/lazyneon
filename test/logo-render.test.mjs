@@ -43,3 +43,26 @@ test('Quick Look never writes an opaque white PNG for a transparent logo',{skip:
  const {colorType,pixel}=firstPixel(full);
  assert.equal(colorType,6,'RGBA');assert.equal(pixel[3],0,'transparent corner');
 });
+
+test('render_png prefers Google Chrome for Testing on macOS and falls back to Google Chrome',()=>{
+ // Branded Google Chrome installs its updater during the first launches on a fresh macOS machine: ~21 s per launch on
+ // CI runners. Chrome for Testing is the updater-free build for automation. Simulate which apps exist.
+ const probe=`
+import json, posixpath, sys
+sys.path.insert(0, ${JSON.stringify(path.dirname(renderPng))})
+import render_png as r
+CFT = "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+r.os.path.isabs, r.shutil.which = posixpath.isabs, lambda name: None
+found = {}
+for case, apps in {"both": {CFT, CHROME}, "chrome only": {CHROME}}.items():
+    r.os.path.exists = lambda p, apps=apps: p in apps
+    found[case] = r.find_chrome()
+print(json.dumps(found))`;
+ const r=spawnSync(python,['-c',probe],{encoding:'utf8',env});
+ assert.equal(r.status,0,r.stderr);
+ assert.deepEqual(JSON.parse(r.stdout),{
+  both:'/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+  'chrome only':'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+ });
+});

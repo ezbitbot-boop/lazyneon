@@ -11,6 +11,8 @@ Quick Look renders on opaque white and crops to a square; with Pillow installed 
 recovered by rendering on white and black ("difference matting"). Without Pillow Quick Look is unavailable: a wrong,
 opaque image is worse than none. Each failed renderer is reported on stderr ("note: ..."); RENDER_PNG_DEBUG=1 also
 reports every Chrome run (seconds to the screenshot and to exit, the browser's stderr).
+On macOS, Google Chrome for Testing (the automation build, no auto-updater) is preferred over Google Chrome: on a fresh
+machine Chrome's first launches install its updater, about 20 s each on CI runners.
 
 Usage:
   python3 scripts/render_png.py logo.svg -o logo.png --size 512
@@ -38,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import svglib  # noqa: E402,F401  (sets UTF-8 console output)
 
 CHROME_CANDIDATES = [
+    "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -222,8 +225,8 @@ def screenshot_html(html_path, png, w, h):
         if not os.path.exists(shot):
             raise RuntimeError(f"chrome produced no file in {ended:.1f} s ({status}); browser stderr: {stderr}")
         if os.environ.get("RENDER_PNG_DEBUG") == "1":
-            print(f"  debug: chrome {w}×{h}: screenshot after {shot_at or ended:.1f} s, {status} after {ended:.1f} s; "
-                  f"browser stderr: {stderr}", file=sys.stderr)
+            print(f"  debug: {os.path.basename(chrome)} {w}x{h}: screenshot after {shot_at or ended:.1f} s, {status} after "
+                  f"{ended:.1f} s; browser stderr: {stderr}", file=sys.stderr)
         shutil.move(shot, png)
 
 
