@@ -53,7 +53,7 @@ for(const op of ['delete','move','bad-move','missing-write'])test(`R9 A4 relay $
 });
 test('R9 M1 plugin path works from unrelated cwd',t=>{
  const d=fixture(t);const r=run('session_start.mjs',[],{cwd:d},{},d);
- assert.ok(JSON.stringify(JSON.parse(r.stdout)).includes(`플러그인 경로: ${root}`));
+ assert.ok(JSON.stringify(JSON.parse(r.stdout)).includes(JSON.stringify(`플러그인 경로: ${root}`).slice(1,-1)));
  for(const p of ['skills/ulw/SKILL.md','rules/AGENTS.md','skills/programming/SKILL.md','skills/image-prompt/SKILL.md','skills/image-prompt/references/jsonl-and-examples.md'])assert.doesNotMatch(read(p),/node scripts\//);
  const c=run('classify-task.mjs',['implement typo'],{},{},d);assert.equal(c.status,0,c.stderr);
 });

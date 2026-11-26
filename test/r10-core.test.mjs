@@ -27,7 +27,7 @@ test('R10 shell destinations are semantic and preserve spaces and directory copi
  ['ffmpeg -i in.mp4 -t 30 reports/clip.mp4',['reports/clip.mp4']],
  ['rm reports/old.md',[]],['git rm reports/old.md',[]],['ls reports/missing.md',[]],
  ['python3 tools/verify.py reports/a.md',[]],['test -f reports/x.json || echo none',[]],
- ])assert.deepEqual(targets(cmd,d,true).map(p=>path.relative(d,p)),expected,cmd);
+ ])assert.deepEqual(targets(cmd,d,true).map(p=>path.relative(d,p).split(path.sep).join('/')),expected,cmd);
 });
 test('R10 patchText and arbitrary patch keys collect every operation',()=>{
  for(const key of ['patchText','body','input'])for(const op of ['Add File','Update File','Delete File','Move to']){
