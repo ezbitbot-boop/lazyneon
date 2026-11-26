@@ -72,8 +72,12 @@ test('R7 explicit missing unreadable files fail and hook paths use workspace',t=
  const dir=fixture(t);
  for(const [script,ext] of [['json_schema_guard.mjs','json'],['markdown_structure_guard.mjs','md']]) {
  assert.equal(run(script,{},['--check',path.join(dir,`missing.${ext}`)]).status,1);
+ // Windows chmod only toggles the read-only attribute, so a file cannot be made unreadable there;
+ // the unreadable case exists on POSIX only. Missing, malformed and directory paths are still checked on every OS.
+ if(process.platform!=='win32') {
  const f=path.join(dir,`denied.${ext}`); fs.writeFileSync(f,ext==='json'?'{}':'valid'); fs.chmodSync(f,0);
  try {assert.equal(run(script,{},['--check',f]).status,1);} finally {fs.chmodSync(f,0o600);}
+ }
  fs.writeFileSync(path.join(dir,`bad.${ext}`),ext==='json'?'{':'```\nunfinished');
  assert.equal(run(script,{workspacePaths:[dir],toolCall:{name:'write_file',args:{path:`bad.${ext}`}}}).status,1);
  }
