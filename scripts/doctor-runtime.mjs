@@ -6,5 +6,5 @@ export function liveRpcSkipReason(platform, live, offline) {
 
 export function pythonVersionStatus(text) {
  const match = /^Python (\d+)\.(\d+)(?:\.|$)/.exec(text.trim());
- return match && (Number(match[1]) > 3 || Number(match[1]) === 3 && Number(match[2]) >= 10) ? 'ok' : 'warn';
+ return match && (Number(match[1]) > 3 || Number(match[1]) === 3 && Number(match[2]) >= 12) ? 'ok' : 'warn';
 }

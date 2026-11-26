@@ -126,9 +126,12 @@ test('R3 H1 lookup ledger uses workspacePaths ahead of cwd', t => {
 });
 test('R3 L6 doctor rejects unsupported Python and accepts supported versions', async () => {
  const { pythonVersionStatus } = await import('../scripts/doctor-runtime.mjs');
- for(const version of ['Python 2.7.18','Python 3.9.6','store alias']) assert.equal(pythonVersionStatus(version),'warn');
- for(const version of ['Python 3.10.0','Python 3.12.7','Python 4.0.0']) assert.equal(pythonVersionStatus(version),'ok');
- assert.match(read('README.md'),/Python 3\.10/);
+ for(const version of ['Python 2.7.18','Python 3.9.6','Python 3.10.0','Python 3.11.9','store alias']) assert.equal(pythonVersionStatus(version),'warn');
+ for(const version of ['Python 3.12.0','Python 3.12.7','Python 3.13.1','Python 4.0.0']) assert.equal(pythonVersionStatus(version),'ok');
+ // One version everywhere: README, doctor and the workspace companion all say 3.12.
+ assert.match(read('README.md'),/Python 3\.12/);
+ assert.doesNotMatch(read('README.md'),/Python 3\.10|3\.10\+|3\.10 이상/);
+ assert.match(read('scripts/doctor.mjs'),/Python >=3\.12 필요/);
  assert.match(read('scripts/doctor.mjs'),/pythonVersionStatus\(/);
 });
 test('R3 H1 stop observation uses workspacePaths ahead of cwd', t => {

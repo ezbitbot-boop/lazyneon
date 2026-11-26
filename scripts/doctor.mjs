@@ -39,12 +39,13 @@ function localConfig() {
 
 function pythonVersion() {
 	// Windows 의 python3/python 은 Microsoft Store 별칭일 수 있어 느리거나 멈춘다. py 런처를 먼저 쓰고, 각 호출에 제한 시간을 둔다.
-	const cands = process.platform === "win32" ? [["py", ["-3", "--version"]], ["python", ["--version"]], ["python3", ["--version"]]] : [["python3", ["--version"]], ["python", ["--version"]]];
+	// README 설치 안내와 같은 3.12 를 먼저 찾는다(python3 가 더 낮은 버전이어도 python3.12 가 있으면 통과).
+	const cands = process.platform === "win32" ? [["py", ["-3.12", "--version"]], ["py", ["-3", "--version"]], ["python", ["--version"]], ["python3", ["--version"]]] : [["python3.12", ["--version"]], ["python3", ["--version"]], ["python", ["--version"]]];
 	for (const [cmd, cmdArgs] of cands) {
 		const res = spawnSync(cmd, cmdArgs, { encoding: "utf8", timeout: 5000 });
 		if (!res.error && res.status === 0) {
 			const version = (res.stdout || res.stderr).trim();
-			add("python", pythonVersionStatus(version), `${cmd}: ${version} (Python >=3.10 필요)`);
+			add("python", pythonVersionStatus(version), `${cmd}: ${version} (Python >=3.12 필요)`);
 			return;
 		}
 	}
