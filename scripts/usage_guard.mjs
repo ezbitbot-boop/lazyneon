@@ -60,9 +60,9 @@ function observeUsage(payload) {
 if(isMainModule(import.meta.url)) {
  let payload={};
  try {payload=JSON.parse((await readStdin(1500))||'{}');} catch {}
+ // Exit once flushed: a host that keeps stdin open would otherwise hold the hook until its timeout.
+ const done=warning=>{const answer=()=>process.stdout.write('{}\n',()=>process.exit(0));if(warning) process.stderr.write(`${warning}\n`,answer);else answer();};
  try {
-  const result=usageGuard(payload);
-  console.log('{}');
-  if(result.warning) console.error(result.warning);
- } catch(e) {console.log('{}');console.error(`[미확인] ${e.message}`);}
+  done(usageGuard(payload).warning);
+ } catch(e) {done(`[미확인] ${e.message}`);}
 }

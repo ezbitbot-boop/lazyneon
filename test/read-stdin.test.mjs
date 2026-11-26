@@ -63,7 +63,7 @@ test('readStdin has one implementation, used by every core hook script', () => {
 });
 
 // Scripts that answer and exit on their own; the host may keep stdin open after writing the payload.
-const SELF_EXITING_HOOKS = ['json_schema_guard.mjs', 'lookup_guard.mjs', 'markdown_structure_guard.mjs', 'stop_claim_guard.mjs', 'write_chunk_guard.mjs'];
+const SELF_EXITING_HOOKS = ['json_schema_guard.mjs', 'lookup_guard.mjs', 'markdown_structure_guard.mjs', 'reply_format_guard.mjs', 'stop_claim_guard.mjs', 'usage_guard.mjs', 'write_chunk_guard.mjs'];
 
 test('self-exiting hook scripts give the same answer whether stdin ends or stays open after the payload', { timeout: 60000 }, async () => {
 	const payload = JSON.stringify({ hook_event_name: 'Test', conversationId: 'stdin-eq', toolCall: { name: 'read_file', args: { Path: 'README.md' } } });

@@ -86,5 +86,6 @@ export function guardReply(payload, env = process.env) {
 if (isMainModule(import.meta.url)) {
  let result = {};
  try { result = guardReply(JSON.parse(await readStdin())); } catch { /* Warn-only hooks fail open. */ }
- process.stdout.write(JSON.stringify(result) + '\n');
+ // Exit once flushed: a host that keeps stdin open would otherwise hold the hook until its timeout.
+ process.stdout.write(JSON.stringify(result) + '\n', () => process.exit(0));
 }
