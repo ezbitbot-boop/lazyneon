@@ -11,7 +11,7 @@ This plugin runs on **Google Antigravity** (`Model: "inherit"`).
 | --- | --- |
 | Explore / research / plan / implement / QA / review | `invoke_subagent` + TASK/DELIVERABLE/SCOPE/VERIFY + role envelope |
 | Wait / poll children | Stay in parent; re-invoke incomplete lanes |
-| Child model hint | Pass top-level `Model: "inherit"` (or `"flash_lite"` only for emergency quota fallback) |
+| Child model hint | Pass top-level `Model: "inherit"` (no emergency model fallback: Flash-Lite is not offered in Antigravity; at 0% quota, checkpoint and stop) |
 
 Use Antigravity tools only (`invoke_subagent`). Do **not** invent foreign spawn/wait/goal APIs or OpenCode kwargs.
 

@@ -5,6 +5,8 @@ import {isIP} from 'node:net';
 import {guardedFetch, isBlockedIp, GuardError, injectionSignals} from './fetch-guard.mjs';
 import {routes, selectRoutes, prepareRoute, officialAlternates} from './access-routes.mjs';
 import {validateResponse} from './access-validation.mjs';
+// Offline comes from LAZYNEON_OFFLINE or config/local.json "offline" (environment wins).
+import {settings} from '../../../scripts/settings.mjs';
 export {selectRoutes, prepareRoute, officialAlternates, validateResponse};
 
 export async function authorizeHop(url,{consent,egress='public',caseMaterial=false}={}) {
@@ -68,7 +70,7 @@ export async function accessUrl(url,{consent,caseMaterial=false,root=process.cwd
  const success=(got,route)=>({status:'ok',route,text:got.text,contentTrust:'untrusted_public_web',injectionSignals:injectionSignals(got.text),attempts});
  try {
   await authorizeHop(url,{consent,egress});
-  if(process.env.LAZYNEON_OFFLINE==='1') return {status:'offline',attempts};
+  if(settings().offline) return {status:'offline',attempts};
   const targets=[{route:'plain',url},...officialAlternates(url),...alternates.slice(0,4).map(a=>({route:'alternate',url:a}))];
   for(const target of targets) {
    const response=await request(target.url);
@@ -109,7 +111,7 @@ export async function accessRoute(id,params={},options={}) {
  try {
   for(const key of ['url','raw_url']) if(params[key]) {
    await authorizeHop(params[key],{consent:options.consent,egress:r.egress});
-   if(process.env.LAZYNEON_OFFLINE!=='1') await checkReaderTarget(params[key]);
+   if(!settings().offline) await checkReaderTarget(params[key]);
   }
  } catch(e) {return {status:e.code==='consent_required'?'consent_required':'refused',note:e.code||'target_invalid'};}
  return accessUrl(prepared.url,{...options,egress:r.egress,reader:false});

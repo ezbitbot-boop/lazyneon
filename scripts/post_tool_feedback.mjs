@@ -21,7 +21,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { stdin } from 'node:process';
+import { readStdin } from './read-stdin.mjs';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -46,33 +46,6 @@ const queuePath = (id) => path.join(feedbackDir(), `${id}.jsonl`);
 function print(obj) {
 	process.stdout.write(`${JSON.stringify(obj)}\n`);
 	process.exit(0);
-}
-
-function readStdin(limitMs = 1500) {
-	return new Promise((resolve) => {
-		if (stdin.isTTY) return resolve('');
-		const chunks = [];
-		let settled = false;
-		const finish = (value) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try { stdin.pause(); } catch {}
-			stdin.removeAllListeners();
-			resolve(value);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
-		if (typeof timer.unref === 'function') timer.unref();
-		stdin.on('data', (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString('utf8').trim();
-			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
-				try { JSON.parse(acc); finish(acc); } catch {}
-			}
-		});
-		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
-		stdin.on('error', () => finish(''));
-	});
 }
 
 function conversationIdOf(raw) {

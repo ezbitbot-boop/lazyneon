@@ -4,7 +4,7 @@
 
 Launch the entire first wave in a single turn via parallel `invoke_subagent` calls — every member briefed in its own flat `invoke_subagent` call starts in parallel; include bounded lanes in the same turn for the territories the axis owners cannot reach (read-only sweeps, blocked pages). Sequential launches and "start with one and see" defeat the mode.
 
-**Budget first.** Before sizing the wave, write one line into `brief.md`: `예산: <N> 레인 / <M> 웨이브 / 세션 한도 추정 <%>`. Without a user-stated budget the default is **4 lanes per wave, 2 waves**; exceeding it needs the user's yes. Because `Gemini 3.8 Flash` shares the same host quota pool as `Gemini 4` while consuming `4.86x` more tokens per task, unify collection, skeptic, verification, and synthesis lanes on `Model: "inherit"` (`flash_lite` only for emergency quota fallback).
+**Budget first.** Before sizing the wave, write one line into `brief.md`: `예산: <N> 레인 / <M> 웨이브 / 세션 한도 추정 <%>`. Without a user-stated budget the default is **4 lanes per wave, 2 waves**; exceeding it needs the user's yes. Unify collection, skeptic, verification, and synthesis lanes on `Model: "inherit"`; there is no emergency model fallback (Gemini 3.8 Flash leaves Antigravity on 2026-11-30 and Flash-Lite is not offered), so at 0% quota checkpoint and stop.
 
 Recommended composition (not a floor — the budget line caps it; when the budget is smaller, drop lanes from the right-hand columns first and keep one browsing lane whenever `Browsing: yes`):
 

@@ -22,10 +22,10 @@ test('R11 mechanical checks are script first but authenticity and PII keep gates
  for(const p of ['증거 매니페스트 검증해줘','보고서 해시가 맞는지 검증해줘']){const c=run(d,'classify-task.mjs',[p]);assert.equal(c.kind,'count_extract');assert.equal(c.gate_results.length,0);assert.equal(c.steps[0].role,'script_first');}
  for(const p of ['해시 검증 후 위변조 여부 판단해줘','매니페스트 검증 후 개인정보 마스킹해줘'])assert.ok(run(d,'classify-task.mjs',[p]).gate_results.length>0);
 });
-test('R11 non-Neon delegates when available and refuses without delegation',t=>{
+test('R11 non-Neon sessions refuse Neon gates and name the model to switch to',t=>{
  const d=fixture(t);
  const c=run(d,'classify-task.mjs',['최종 리뷰해줘'],{modelName:'gemini-4-carbon-high'});
- assert.match(c.action,/^delegate:/);assert.equal(c.gate_execution,'delegation_required');assert.equal(c.gate_results[0].status,'pending');
+ assert.match(c.action,/^refuse: needs gemini-4-neon-high; switch the model picker to Gemini 4 Neon/);assert.equal(c.gate_execution,'neon_session_required');assert.equal(c.gate_results[0].status,'refused');assert.equal(c.gate_results[0].reason,'neon_session_required');
  for(const role of ['default','plan','verdict_review'])for(const model of ['gemini-4-carbon-high','gemini-4-hydrogen-high','other-model']){
  const required=routing.roles[role].model;assert.match(getAction(required,routing.roles,role,'single',{},model),/^refuse:/);assert.match(getAction(required,routing.roles,role,'single',{pro:'gemini-4-neon'},model),/^delegate:/);
  }

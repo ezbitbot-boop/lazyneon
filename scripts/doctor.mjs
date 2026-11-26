@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { liveRpcSkipReason, pythonVersionStatus } from './doctor-runtime.mjs';
 import { RULES_FILE_WARN_BYTES, RULES_TOTAL_WARN_BYTES } from "./rules-budget.mjs";
 import { staticPrefix, runtimeContext } from './session_start.mjs';
+import { SETTINGS, settings as localSettings } from './settings.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
@@ -28,14 +29,23 @@ function nodeVersion() {
 	add("node", major >= 20 ? "ok" : "fail", `node ${process.versions.node} (>=20 필요)`);
 }
 
+// config/local.json: show what the file switched and every defect, so a non-developer can see why a switch did not apply.
+function localConfig() {
+	const s = localSettings();
+	const values = Object.keys(SETTINGS).map(key => `${key}=${s[key]}(${s.source[key] === "env" ? "환경변수" : s.source[key] === "file" ? "설정 파일" : "기본"})`).join(", ");
+	if (s.problems.length) add("config", "warn", `${s.file}: ${s.problems.join("; ")} — 적용값: ${values}`);
+	else add("config", "ok", `${s.exists ? s.file : `${s.file} 없음(기본값)`} — 적용값: ${values}`);
+}
+
 function pythonVersion() {
 	// Windows 의 python3/python 은 Microsoft Store 별칭일 수 있어 느리거나 멈춘다. py 런처를 먼저 쓰고, 각 호출에 제한 시간을 둔다.
-	const cands = process.platform === "win32" ? [["py", ["-3", "--version"]], ["python", ["--version"]], ["python3", ["--version"]]] : [["python3", ["--version"]], ["python", ["--version"]]];
+	// README 설치 안내와 같은 3.12 를 먼저 찾는다(python3 가 더 낮은 버전이어도 python3.12 가 있으면 통과).
+	const cands = process.platform === "win32" ? [["py", ["-3.12", "--version"]], ["py", ["-3", "--version"]], ["python", ["--version"]], ["python3", ["--version"]]] : [["python3.12", ["--version"]], ["python3", ["--version"]], ["python", ["--version"]]];
 	for (const [cmd, cmdArgs] of cands) {
 		const res = spawnSync(cmd, cmdArgs, { encoding: "utf8", timeout: 5000 });
 		if (!res.error && res.status === 0) {
 			const version = (res.stdout || res.stderr).trim();
-			add("python", pythonVersionStatus(version), `${cmd}: ${version} (Python >=3.10 필요)`);
+			add("python", pythonVersionStatus(version), `${cmd}: ${version} (Python >=3.12 필요)`);
 			return;
 		}
 	}
@@ -83,6 +93,11 @@ const EXPECTED_HOOKS = {
           {
             "type": "command",
             "command": "node ./scripts/write_chunk_guard.mjs",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node ./scripts/destructive_guard.mjs",
             "timeout": 30
           }
         ]
@@ -370,7 +385,7 @@ function discoverLiveLanguageServer({ spawnSync, live, offline, platform, mockJs
 }
 
 export function liveRpcCheck(options = {}) {
- const settings = { spawnSync, live: process.argv.includes("--live"), offline: process.env.LAZYNEON_OFFLINE === "1", platform: process.platform, mockJson: process.env.LAZYNEON_LS_RPC_MOCK_JSON, ...options };
+ const settings = { spawnSync, live: process.argv.includes("--live"), offline: localSettings().offline, platform: process.platform, mockJson: process.env.LAZYNEON_LS_RPC_MOCK_JSON, ...options };
  performLiveRpcCheck(settings);
  return checks.at(-1);
 }
@@ -528,7 +543,7 @@ function skillsSourceReceipts() {
 		return;
 	}
 	// --online also confirms every verified pin exists on GitHub (network; slower).
-	const online = process.argv.includes("--online") && process.env.LAZYNEON_OFFLINE !== "1";
+	const online = process.argv.includes("--online") && !localSettings().offline;
 	const res = spawnSync("node", [radarScript, "audit", "--json", ...(online ? ["--remote"] : [])], {
 		cwd: root,
 		encoding: "utf8",
@@ -558,7 +573,7 @@ if (isMainModule(import.meta.url)) {
 const companion=companionStatus();
 add('companion',companion.installed&&!companion.compatible?'warn':'ok',companionLine(companion));
 const slow = [];
-for (const fn of [nodeVersion, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
+for (const fn of [nodeVersion, localConfig, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
 	const t0 = Date.now();
 	fn();
 	const ms = Date.now() - t0;

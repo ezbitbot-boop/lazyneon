@@ -19,7 +19,7 @@
 | Guessing the deliverable format | Derive it from the request and destination; ask the empty-info interview only for what is still missing, and record `answered_by` for every field |
 | Blocking the collection wave on the format question | Ask once and start collecting; skipped/unanswered fields run on the shown defaults |
 | A roster smaller than the runtime maximum | Fill every slot; split the broadest axis until the wave is full |
-| Wrong model routing on subagents | Use `Model: "inherit"` for all lanes including `browser` (`"flash"` retired), and `"flash_lite"` only for 0% primary quota emergency fallback |
+| Wrong model routing on subagents | Use `Model: "inherit"` for all lanes including `browser` (`"flash"` retired); no emergency model fallback: at 0% primary quota, checkpoint and stop |
 | Silently re-routing a "quick"/"fast" roster to another tier | Routing words are literal; journal requested -> spawned -> fallback for every slot |
 | A member that starts its own research wave or loads this skill | Members research one axis and report; orchestration is yours alone |
 | Expanding on an entity the first wave never disambiguated | Settle canonical identity and first-party source before any later prompt asserts it |

@@ -1,0 +1,8 @@
+{
+  "_설명": "이 파일을 같은 폴더에 local.json 이라는 이름으로 복사한 뒤 값을 바꾼다. true = 켜짐, false = 꺼짐. 같은 뜻의 환경변수가 있으면 환경변수가 우선한다. 가드와 자기 점검은 다음 훅 실행부터, 업데이트 확인은 다음 세션부터 적용된다.",
+  "_항목": "writeChunkGuard = 한 번에 큰 파일 쓰기 막기, selfCheck = 답변 자기 점검(추가 턴), offline = LazyNeon 코어의 업데이트 확인과 웹 조회 끄기, updateCheck = 하루 한 번 업데이트 확인",
+  "writeChunkGuard": true,
+  "selfCheck": true,
+  "offline": false,
+  "updateCheck": true
+}

@@ -19,8 +19,12 @@ function run(payload, cwd, env = {}, scriptPath = SCRIPT, extraArgs = []) {
 	return spawnSync("node", [scriptPath, ...extraArgs], { cwd, input: payload, encoding: "utf8", env: e });
 }
 
-test("#given host modelName #when session starts #then runtime block quotes it and is valid JSON", () => {
-	const res = run(JSON.stringify({ hook_event_name: "SessionStart", modelName: "gemini-4-argon" }), ROOT);
+test("#given host modelName #when session starts #then runtime block quotes it and is valid JSON", (t) => {
+	// A temp cwd: the hook records the session model under <cwd>/.lazyneon, and a stale record in the plugin root
+	// would leak into every classify-task test that runs there.
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lazyneon-model-"));
+	t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+	const res = run(JSON.stringify({ hook_event_name: "SessionStart", modelName: "gemini-4-argon" }), tmp);
 	assert.equal(res.status, 0, res.stderr);
 	const out = JSON.parse(res.stdout);
 	assert.match(ctxOf(out), /세션 모델: gemini-4-argon/);

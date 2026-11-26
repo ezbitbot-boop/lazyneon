@@ -20,7 +20,8 @@ for (const role of ['plan', 'final_review', 'security_audit', 'forensic_verdict'
  test(`gate ${role} enforces model family and tier before non-Neon return`, () => {
   const required = routing.roles[role].model;
   for (const session of ['gemini-4-hydrogen-low', 'gemini-4-hydrogen-xhigh', 'gemini-4-carbon-xhigh', 'gemini-4-neon-low', 'gemini-4-neon']) {
-   assert.match(getAction(required, routing.roles, role, 'single', routing.subagent_tiers, session), session.startsWith('gemini-4-neon') ? /^proceed/ : new RegExp(`^delegate: invoke_subagent ${required}`));
+   // `pro` runs Hydrogen XHigh (antigravity-cli #1824/#1710): no tier reaches Neon, so non-Neon sessions refuse instead of delegating.
+   assert.match(getAction(required, routing.roles, role, 'single', routing.subagent_tiers, session), session.startsWith('gemini-4-neon') ? /^proceed/ : new RegExp(`^refuse: needs ${required}; switch the model picker to Gemini 4 Neon`));
    assert.match(getAction(required, routing.roles, role, 'single', {}, session), session.startsWith('gemini-4-neon') ? /^proceed/ : new RegExp(`^refuse: needs ${required}`));
    assert.ok(sessionNotice(required, routing.roles, session));
   }
@@ -37,7 +38,9 @@ test('compound implementation retains every Neon gate separately', () => {
  for (const role of ['plan', 'final_review', 'security_audit', 'forensic_verdict', 'pii_inject_docfmt', 'verdict_review']) {
   assert.ok(r.steps.some(s => s.role === role && s.model.startsWith('gemini-4-neon-')), role);
  }
- assert.ok(r.steps.some(s => s.role === 'implementation' && s.model === routing.protected_materials.parallel_workers));
+ assert.ok(r.steps.some(s => s.role === 'implementation' && s.model === 'gemini-4-neon-high' && s.action.startsWith('proceed in session')));
+ assert.equal(r.delegation, 'forbidden');
+ assert.equal(r.mode, 'single');
  assert.ok(r.steps.every(s => !s.model.includes('hydrogen')), 'protected compound execution excludes the entire Hydrogen family');
 });
 test('final_review reachable independently from ordinary judgment', () => {
@@ -53,8 +56,20 @@ test('long context never fans out even with implementation and gates', () => {
   assert.equal(r.min_context_tokens, null);
  }
  const r = classify('250k');
- assert.equal(r.fallback, 'gemini-4-carbon-high');
+ assert.equal(r.fallback, 'gemini-4-carbon-medium');
  assert.equal(r.timeout_sec, null);
+});
+test('routing follows antigravity.google/docs/models: no Flash-Lite or removed models, 512K default context', async () => {
+ assert.equal('flash_lite' in routing.subagent_tiers, false);
+ assert.match(routing.antigravity_models_source, /^https:\/\/antigravity\.google\/docs\/models/);
+ const text = JSON.stringify({ roles: routing.roles, subagent_tiers: routing.subagent_tiers, protected_materials: routing.protected_materials });
+ assert.doesNotMatch(text, /gemini-4-argon|gemini-3\.8|flash-lite|carbon-high/i);
+ const { hostLimits } = await import('../scripts/long-output.mjs');
+ assert.equal(hostLimits().context_limit, 524288);
+ assert.equal(hostLimits({ version: 'v', evidence: { source: 'installer', version: 'v', max_context_tokens: 2000000 } }).context_limit, 1048576);
+ for (const file of ['rules/AGENTS.md', 'skills/ulw/SKILL.md', 'skills/ulw-research/SKILL.md', 'skills/refactor/SKILL.md', 'skills/visual-qa/SKILL.md']) {
+  assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /flash_lite/, file);
+ }
 });
 test('general reading remains single regardless of file count', () => {
  for (const verb of ['요약', '설명', '읽기', 'summarize', 'explain', 'read']) {
@@ -118,7 +133,7 @@ test('one rule budget, one STT procedure, declared unfinished modes and release 
 
 test('long-context session cannot proceed on Hydrogen and RPC unknown is not ok', () => {
  const required = routing.roles.long_context.model;
- assert.match(getAction(required, routing.roles, 'long_context', 'single', routing.subagent_tiers, 'gemini-4-hydrogen-high'), /^delegate: invoke_subagent gemini-4-neon-high/);
+ assert.match(getAction(required, routing.roles, 'long_context', 'single', routing.subagent_tiers, 'gemini-4-hydrogen-high'), /^refuse: needs gemini-4-neon-high; switch the model picker to Gemini 4 Neon/);
  assert.match(getAction(required, routing.roles, 'long_context', 'single', {}, 'gemini-4-hydrogen-high'), /^refuse: needs gemini-4-neon-high/);
  const r = run('doctor.mjs', ['--json'], { LAZYNEON_LS_RPC_MOCK_JSON: JSON.stringify({ states: [{ name: 'lazyneon', status: 'UNKNOWN' }] }) });
  assert.equal(r.checks.find(c => c.id === 'antigravity.live_rpc').status, 'warn');
@@ -128,7 +143,9 @@ test('research procedures resolve collection and judgment roles without retired 
  for (const file of ['skills/ulw-research/SKILL.md', 'skills/ulw-research/references/wave-composition.md']) {
   const text = fs.readFileSync(path.join(root, file), 'utf8');
   assert.match(text, /Hydrogen `flash`/);
-  assert.match(text, /Neon `pro`/);
+  // `pro` runs Hydrogen XHigh (antigravity-cli #1824/#1710): judgment stays in the Neon session.
+  assert.match(text, /Neon session/);
+  assert.doesNotMatch(text, /Neon `pro`|`pro` = Neon/);
   assert.doesNotMatch(text, /flash[`"]? retired|never use `"flash"`|all lanes.*`inherit`/);
  }
 });

@@ -9,7 +9,8 @@ export function hostLimits(host={}) {
   Number.isFinite(e[key])&&e[key]>0?e[key]:fallback;
  return {max_write_bytes:writeLimit('max_write_bytes',24576),
   max_write_lines:writeLimit('max_write_lines',250),
-  context_limit:valid&&Number.isFinite(e.max_context_tokens)&&e.max_context_tokens>0?Math.min(1048576,e.max_context_tokens):1048576,
+  // Neon in Antigravity: up to 512K tokens (https://antigravity.google/docs/models); 1,048,576 is the direct API limit.
+  context_limit:valid&&Number.isFinite(e.max_context_tokens)&&e.max_context_tokens>0?Math.min(1048576,e.max_context_tokens):524288,
   idle_timeout_sec:valid?e.idle_timeout_sec??null:null,deadline_sec:valid?e.deadline_sec??null:null};
 }
 export function contextReserve(host,usage) {

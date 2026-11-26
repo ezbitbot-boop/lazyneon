@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {completionEvidence} from '../scripts/stop_claim_guard.mjs';
 const env={...process.env,LAZYNEON_OFFLINE:'1',LAZYNEON_NO_AUTO_UPDATE:'1'};
+// SessionStart records the session model under <workspace>/.lazyneon; keep it out of the plugin root,
+// where it would leak into classify-task runs of other test files.
+const workspace=fs.mkdtempSync(path.join(os.tmpdir(),'lazyneon-neon-'));
+process.on('exit',()=>fs.rmSync(workspace,{recursive:true,force:true}));
 function run(script,prompt,payload={}) {
- const r=spawnSync(process.execPath,[`scripts/${script}.mjs`,...(prompt?[prompt]:[])],{env,input:JSON.stringify(payload),encoding:'utf8'});
+ const input=script==='session_start'&&!payload.cwd?{...payload,cwd:workspace}:payload;
+ const r=spawnSync(process.execPath,[`scripts/${script}.mjs`,...(prompt?[prompt]:[])],{env,input:JSON.stringify(input),encoding:'utf8'});
  assert.equal(r.status,0,r.stderr); return JSON.parse(r.stdout);
 }
 const classify=(prompt,payload={})=>run('classify-task',prompt,{modelName:'gemini-4-neon-high',...payload});
@@ -47,7 +54,10 @@ test('N3 Office inputs use Neon direct with conditional conversion fallback',()=
 });
 test('N4 long context chunks first and Carbon is last resort with dated cost note',()=>{
  const r=classify('read 2000000 tokens'); assert.equal(r.model,'gemini-4-neon-high');
- assert.equal(r.context_policy.unified_limit_tokens,1048576);
+ // https://antigravity.google/docs/models: Neon in Antigravity is up to 512K; 1M is the direct API limit.
+ assert.equal(r.context_policy.unified_limit_tokens,524288);
+ assert.equal(r.context_policy.api_limit_tokens,1048576);
+ assert.match(r.context_policy.limit_source,/antigravity\.google\/docs\/models/);
  assert.equal(r.context_policy.strategy,'chunk_with_output_reserve');
  assert.match(r.context_policy.fallback_condition,/last.resort/);
  assert.match(r.context_policy.cost_note,/2026-12-01.*2/);

@@ -13,12 +13,12 @@
  * - 대상은 .md 만이다. 지정한 파일이 없거나 읽지 못하면 실패한다.
  * - --check <경로...> 로 수동/CI 일괄 검사 모드를 지원한다(발견 시 exit 1).
  *
- * stdin 규약: hallucination_guard.mjs 와 동일 — 1.5초 데드라인 비동기 읽기.
+ * stdin 규약: 공용 read-stdin.mjs — 1.5초 데드라인 비동기 읽기.
  */
 import { hookTargets } from './hook_targets.mjs';
 import fs from 'fs';
 import path from 'path';
-import { stdin } from 'node:process';
+import { readStdin } from './read-stdin.mjs';
 
 const GUARD_PACK_VERSION = '1.1.0';
 const READ_CAP_BYTES = 2 * 1024 * 1024;
@@ -26,39 +26,6 @@ const READ_CAP_BYTES = 2 * 1024 * 1024;
 // ---------------------------------------------------------------------------
 // 입력 수집 (hallucination_guard.mjs 와 동일 규약)
 // ---------------------------------------------------------------------------
-
-function readStdin(limitMs = 1500) {
-	return new Promise((resolve) => {
-		if (stdin.isTTY) {
-			resolve('');
-			return;
-		}
-		const chunks = [];
-		let settled = false;
-		const finish = (value) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try { stdin.pause(); } catch {}
-			stdin.removeAllListeners();
-			resolve(value);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
-		if (typeof timer.unref === 'function') timer.unref();
-		stdin.on('data', (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString('utf8').trim();
-			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
-		stdin.on('error', () => finish(''));
-	});
-}
 
 function tryParseJson(text) {
 	if (!text) return undefined;

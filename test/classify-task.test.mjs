@@ -51,7 +51,9 @@ function assertSchema(result, label) {
 		result.prompt === null || result.prompt === "v2",
 		`${label}: prompt must be null or "v2", got "${result.prompt}"`,
 	);
-	assert.equal(result.mode, result.size, `${label}: mode must equal size`);
+	// Protected work never fans out: its size may say subagents while execution stays single.
+	assert.equal(result.mode, result.delegation === "forbidden" ? "single" : result.size, `${label}: mode must equal size unless delegation is forbidden`);
+	assert.ok(["allowed", "forbidden"].includes(result.delegation), `${label}: delegation must be allowed or forbidden`);
 }
 
 // ── Regression: previously misclassified as "general" ───────────────────────
@@ -445,15 +447,36 @@ test("action: subagents+Neon → delegate via invoke_subagent", () => {
 	assert.ok(r.action.startsWith('delegate via invoke_subagent Model: "flash"'));
 });
 
-test("action: subagents+sensitive → delegate + v2 rule", () => {
+test("action: subagents+sensitive → no fan-out, proceed in session + v2 rule", () => {
 	const r = classify("check for pii across 3 files");
 	assertSchema(r, "action subagents sensitive");
 	assert.equal(r.model, "gemini-4-neon-high");
-	assert.equal(r.worker_model, "gemini-4-neon-high");
+	assert.equal(r.worker_model, null);
+	assert.equal(r.mode, "single");
+	assert.equal(r.delegation, "forbidden");
 	assert.match(r.routing_note, /^\[미측정\] /);
 	assert.equal(r.size, "subagents");
 	assert.ok(r.action.includes('proceed in session'));
 	assert.ok(r.action.includes("apply v2 flag/fail rule"));
+	assert.ok(r.rules.some(rule => rule.includes("Orchestrator") && rule.includes("#1824")));
+	assert.match(r.session_notice, /민감 작업은 Orchestrator가 아닌 Gemini 4 Neon 단독 세션/);
+});
+
+test("sensitive work refuses delegation targets: non-Neon and Orchestrator sessions", async () => {
+	const { classifyTask } = await import("../scripts/classify-task.mjs");
+	for (const modelName of ["gemini-4-hydrogen-xhigh", "gemini-4-carbon-high", "gemini-4-neon-orchestrator", "Orchestrator (Gemini 4 Neon)"]) {
+		const r = classifyTask("개인정보 마스킹해줘 3개 파일", { modelName });
+		assert.equal(r.delegation, "forbidden", modelName);
+		assert.match(r.action, /^refuse: sensitive task needs a direct Gemini 4 Neon session \(no subagents, no Orchestrator\)/, modelName);
+		assert.ok(r.steps.every(s => !s.action.startsWith("delegate")), modelName);
+		assert.ok(r.gate_results.every(g => g.status === "refused" && g.reason === "sensitive_requires_neon_session"), modelName);
+	}
+	const neon = classifyTask("증거 폴더 해시 대조 후 위변조 판단, 여러 파일 병렬로", { modelName: "gemini-4-neon-high" });
+	assert.equal(neon.mode, "single");
+	assert.ok(neon.steps.every(s => s.action.startsWith("proceed in session") && !/hydrogen/.test(s.model)));
+	const ordinary = classifyTask("implement changes across 3 files", { modelName: "gemini-4-neon-high" });
+	assert.equal(ordinary.delegation, "allowed");
+	assert.match(ordinary.action, /^delegate via invoke_subagent Model: "flash"/);
 });
 
 // ── action: Hydrogen/Carbon → proceed in session model + notice ───────────────
@@ -595,7 +618,7 @@ test("only valid Neon thinking suffixes resolve to the pro family", async () => 
 	assert.notEqual(modelFamily("gemini-4-neon-minimal"), "gemini-4-neon");
 	for (const session of ["gemini-4-argon-high", "gemini-4-carbon-high", "gemini-4-neon-minimal"]) {
 		const action = getAction(ROUTING.roles.default.model, ROUTING.roles, "default", "subagents", ROUTING.subagent_tiers, session);
-		assert.match(action, /^delegate: invoke_subagent gemini-4-neon-high/); // Neon tier available → hand off, never run on Argon/Carbon
+		assert.match(action, /^refuse: needs gemini-4-neon-high; switch the model picker to Gemini 4 Neon/); // no tier runs Neon (`pro` is Hydrogen XHigh) → never run on Argon/Carbon
 		assert.match(sessionNotice(ROUTING.roles.default.model, ROUTING.roles, session), /세션|\[미확인\]/);
 	}
 	const tiers = { orchestrator: "gemini-4-neon", worker: "gemini-4-hydrogen" };

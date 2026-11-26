@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { isMainModule } from './is-main.mjs';
 import { samePath } from './same-path.mjs';
+import { settings } from './settings.mjs';
 
 import {acquireUpdateLock} from './update-lock.mjs';
 
@@ -49,7 +50,7 @@ export function updateCommand(dir = root) {
  return process.platform === 'win32' ? `node "${cli.replaceAll('"', '')}" update` : `node '${cli.replaceAll("'", "'\\''")}' update`;
 }
 export function updatePlugin(dir = root, env = process.env, out = process.stdout) {
- if (env.LAZYNEON_OFFLINE === '1') throw Error('LAZYNEON_OFFLINE=1: update disabled');
+ if (settings(env, dir).offline) throw Error('offline mode (LAZYNEON_OFFLINE=1 or "offline": true in config/local.json): update disabled');
  const before = checkout(dir);
  clean(dir);
  const after = fetchHead(dir);
@@ -64,7 +65,8 @@ export function updatePlugin(dir = root, env = process.env, out = process.stdout
 
 // The return value is injected into SessionStart, not merely printed to stderr.
 export function autoUpdate(dir = root, env = process.env, errOut = process.stderr) {
- if (env.LAZYNEON_OFFLINE === '1' || env.LAZYNEON_NO_UPDATE_CHECK === '1' || env.LAZYNEON_NO_AUTO_UPDATE === '1') return;
+ const switches = settings(env, dir);
+ if (switches.offline || !switches.updateCheck) return;
  let release;
  const deadline=Date.now()+12000;
  try {

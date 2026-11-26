@@ -13,10 +13,11 @@ import {pluginProvenance} from './provenance.mjs';
  *   { hook_event_name: "Stop"|"SubagentStop", stop_hook_active: bool,
  *     last_assistant_message?: string, ... }
  * 차단 규약: stdout 에 {"decision":"continue","reason":"..."} 출력 + exit 0 (Antigravity Stop 계약: continue 만 루프 재진입, 그 외 값은 정지 허용).
- * LAZYNEON_SELF_CHECK는 기본 on이며 위험 주장에 재확인을 요청해 Stop을 막을 수 있다.
+ * 자기 점검(LAZYNEON_SELF_CHECK 또는 config/local.json "selfCheck")은 기본 on이며 위험 주장에 재확인을 요청해 Stop을 막을 수 있다.
  * 완료 근거 검사 모드: 기본은 observe — 차단했을 판정을 <workspace>/.lazyneon/stop-guard.jsonl 에 기록만 하고 통과시킨다.
  *   LAZYNEON_STOP_GUARD=enforce (대소문자·양끝 공백 무시) 일 때 완료 근거 검사도 Stop을 막는다.
- *   페이로드에 절대경로 워크스페이스가 없으면 ~/.lazyneon/stop-guard.jsonl 에 기록한다.
+ *   기록에는 답변 원문을 남기지 않는다: 답변과 점검 문장은 sha256 해시와 길이만 적는다(사건 내용이 기록 파일에 남지 않게).
+ *   페이로드에 절대경로 워크스페이스가 없으면 아무 데도 기록하지 않는다(홈 폴더로 대신 쓰지 않는다).
  *
  * 정직한 동작 규약:
  * - stop_hook_active=true (이미 재개된 턴)면 개입하지 않는다 — 무한 루프 방지.
@@ -39,7 +40,10 @@ const FILE_EVIDENCE_RE = /[\w./가-힣-]+\.(?:md|json|png|txt|html|csv|yml|yaml|
 
 import { hookTargets } from './hook_targets.mjs';
 import { resolveWorkspace } from './workspace-path.mjs';
+import { settings } from './settings.mjs';
 import { isMainModule } from './is-main.mjs';
+import { readStdin } from './read-stdin.mjs';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -56,40 +60,6 @@ function recordFailedLookups(raw) {
 	if (!fs.existsSync(guard)) return;
 	const result = spawnSync(process.execPath, [guard], { input: raw, encoding: 'utf8', timeout: 4000 });
 	if (result.stderr) process.stderr.write(result.stderr);
-}
-
-function readStdin(limitMs = 1500) {
-	return new Promise((resolve) => {
-		const { stdin } = process;
-		if (stdin.isTTY) {
-			resolve('');
-			return;
-		}
-		const chunks = [];
-		let settled = false;
-		const finish = (value) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			try { stdin.pause(); } catch {}
-			stdin.removeAllListeners();
-			resolve(value);
-		};
-		const timer = setTimeout(() => finish(Buffer.concat(chunks).toString('utf8')), limitMs);
-		if (typeof timer.unref === 'function') timer.unref();
-		stdin.on('data', (chunk) => {
-			chunks.push(chunk);
-			const acc = Buffer.concat(chunks).toString('utf8').trim();
-			if ((acc.startsWith('{') && acc.endsWith('}')) || (acc.startsWith('[') && acc.endsWith(']'))) {
-				try {
-					JSON.parse(acc);
-					finish(acc);
-				} catch {}
-			}
-		});
-		stdin.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
-		stdin.on('error', () => finish(''));
-	});
 }
 
 function resolveTranscriptPaths(payload) {
@@ -542,11 +512,32 @@ function isReportTurn(ev, payload) {
 	if (DATA_FILE_RE.test(args)) return true;
 	if (ev.names.some((n) => REPORT_WRITE_RE.test(n)) && REPORT_FILE_RE.test(args)) return true;
 	const ws = observeLogBase(payload);
-	return ws !== os.homedir() && EVIDENCE_DIR_NAMES.some((d) => fs.existsSync(path.join(ws, d)));
+	return Boolean(ws) && ws !== os.homedir() && EVIDENCE_DIR_NAMES.some((d) => fs.existsSync(path.join(ws, d)));
 }
 
+// Observe logs live only in the payload's absolute workspace. Unknown workspace → no log, never the home folder.
 function observeLogBase(payload) {
-	return resolveWorkspace(payload, os.homedir());
+	return resolveWorkspace(payload, null);
+}
+
+// Answer text may carry case content (names, counts, conclusions). Logs keep only a fingerprint.
+export function textDigest(text) {
+	const value = String(text ?? '');
+	return { sha256: createHash('sha256').update(value, 'utf8').digest('hex'), length: value.length };
+}
+
+const loggedSentences = (items) => items.map(({ kind, sentence }) => ({ kind, ...textDigest(sentence) }));
+
+function appendObserveLog(payload, entry, label) {
+	const base = observeLogBase(payload);
+	if (!base) return;
+	try {
+		const dir = path.join(base, '.lazyneon');
+		fs.mkdirSync(dir, { recursive: true });
+		fs.appendFileSync(path.join(dir, 'stop-guard.jsonl'), `${JSON.stringify({ plugin: pluginProvenance(), ts: new Date().toISOString(), ...entry })}\n`);
+	} catch (err) {
+		process.stderr.write(`stop_claim_guard: ${label} log failed: ${err.message}\n`);
+	}
 }
 
 function emitBlock(payload, reason) {
@@ -554,22 +545,13 @@ function emitBlock(payload, reason) {
 		process.stdout.write(`${JSON.stringify({ decision: 'continue', reason })}\n`);
 		process.exit(0);
 	}
-	try {
-		const dir = path.join(observeLogBase(payload), '.lazyneon');
-		fs.mkdirSync(dir, { recursive: true });
-		const entry = {
-            plugin: pluginProvenance(),
-			ts: new Date().toISOString(),
-			mode: 'observe',
-			would_block: true,
-			conversationId: payload.conversationId || null,
-			reason: reason.slice(0, 300),
-			excerpt: LAST_MESSAGE.slice(0, 400),
-		};
-		fs.appendFileSync(path.join(dir, 'stop-guard.jsonl'), `${JSON.stringify(entry)}\n`);
-	} catch (err) {
-		process.stderr.write(`stop_claim_guard: observe log failed: ${err.message}\n`);
-	}
+	appendObserveLog(payload, {
+		mode: 'observe',
+		would_block: true,
+		conversationId: payload.conversationId || null,
+		reason: reason.slice(0, 300),
+		answer: textDigest(LAST_MESSAGE),
+	}, 'observe');
 	process.stdout.write('{}\n');
 	process.exit(0);
 }
@@ -629,8 +611,10 @@ async function main() {
 	// 종류의 문장이 새로 생겼을 때만 묻는다(같은 종류를 다시 묻는 것은 실세션에서 오탐 반복이었다).
 	const turnId = `${payload.conversationId || ''}#${ev ? ev.turnKey : ''}`;
 	const asked = new Set();
+	const logBase = observeLogBase(payload);
 	try {
-		const log = fs.readFileSync(path.join(observeLogBase(payload), '.lazyneon', 'stop-guard.jsonl'), 'utf8');
+		if (!logBase) throw new Error('no workspace');
+		const log = fs.readFileSync(path.join(logBase, '.lazyneon', 'stop-guard.jsonl'), 'utf8');
 		for (const l of log.split('\n')) {
 			if (!l.includes('"self_check"') || !l.includes(`"turn":${JSON.stringify(turnId)}`)) continue;
 			try {
@@ -646,13 +630,7 @@ async function main() {
 	const deferred = isReportTurn(ev, payload) ? [] : found.filter((r) => NUMERIC_KIND_RE.test(r.kind));
 	const risky = found.filter((r) => !deferred.includes(r));
 	if (deferred.length) {
-		try {
-			const dir = path.join(observeLogBase(payload), '.lazyneon');
-			fs.mkdirSync(dir, { recursive: true });
-			fs.appendFileSync(path.join(dir, 'stop-guard.jsonl'), `${JSON.stringify({ plugin:pluginProvenance(), ts: new Date().toISOString(), mode: 'observe_numeric', turn: turnId, conversationId: payload.conversationId || null, sentences: deferred })}\n`);
-		} catch (err) {
-			process.stderr.write(`stop_claim_guard: numeric observe log failed: ${err.message}\n`);
-		}
+		appendObserveLog(payload, { mode: 'observe_numeric', turn: turnId, conversationId: payload.conversationId || null, sentences: loggedSentences(deferred) }, 'numeric observe');
 	}
 	// 증거 없는 완료 선언('모든 검증을 완료했다'): enforce 면 아래 완료 선언 가드가 막는다.
 	// observe 면 그 가드는 기록만 하므로, 기록을 남기고 자기 점검으로 한 번 묻는다(측정: 미루면 '세 파일 모두 통과' 류가 아무 질문 없이 나갔다).
@@ -660,23 +638,11 @@ async function main() {
 	const hasEvidence = completionEvidence(message, transcriptContent, evidenceCwd);
 	const legacyClaim = Boolean(message) && CLAIM_RE.test(message) && !hasEvidence;
 	const enforceMode = (process.env.LAZYNEON_STOP_GUARD || '').trim().toLowerCase() === 'enforce';
-	if (risky.length && !(legacyClaim && enforceMode) && (process.env.LAZYNEON_SELF_CHECK || 'on').trim().toLowerCase() !== 'off') {
+	if (risky.length && !(legacyClaim && enforceMode) && settings().selfCheck) {
 		if (legacyClaim) {
-			try {
-				const dir = path.join(observeLogBase(payload), '.lazyneon');
-				fs.mkdirSync(dir, { recursive: true });
-				fs.appendFileSync(path.join(dir, 'stop-guard.jsonl'), `${JSON.stringify({ plugin:pluginProvenance(), ts: new Date().toISOString(), mode: 'observe', would_block: true, conversationId: payload.conversationId || null, reason: `[STOP CLAIM GUARD v${GUARD_PACK_VERSION}] 완료 선언에 반증 가능한 증거가 없다(자기 점검으로 대신 물음).`, excerpt: message.slice(0, 400) })}\n`);
-			} catch (err) {
-				process.stderr.write(`stop_claim_guard: observe log failed: ${err.message}\n`);
-			}
+			appendObserveLog(payload, { mode: 'observe', would_block: true, conversationId: payload.conversationId || null, reason: `[STOP CLAIM GUARD v${GUARD_PACK_VERSION}] 완료 선언에 반증 가능한 증거가 없다(자기 점검으로 대신 물음).`, answer: textDigest(message) }, 'observe');
 		}
-		try {
-			const dir = path.join(observeLogBase(payload), '.lazyneon');
-			fs.mkdirSync(dir, { recursive: true });
-			fs.appendFileSync(path.join(dir, 'stop-guard.jsonl'), `${JSON.stringify({ plugin:pluginProvenance(), ts: new Date().toISOString(), mode: 'self_check', turn: turnId, conversationId: payload.conversationId || null, executionNum: payload.executionNum ?? null, stop_hook_active: payload.stop_hook_active ?? null, payload_keys: Object.keys(payload), sentences: risky })}\n`);
-		} catch (err) {
-			process.stderr.write(`stop_claim_guard: self-check log failed: ${err.message}\n`);
-		}
+		appendObserveLog(payload, { mode: 'self_check', turn: turnId, conversationId: payload.conversationId || null, executionNum: payload.executionNum ?? null, stop_hook_active: payload.stop_hook_active ?? null, payload_keys: Object.keys(payload), sentences: loggedSentences(risky) }, 'self-check');
 		process.stdout.write(`${JSON.stringify({ decision: 'continue', reason: selfCheckReason(risky) })}\n`);
 		process.exit(0);
 	}
