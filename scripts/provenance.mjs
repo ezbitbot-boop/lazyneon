@@ -1,7 +1,8 @@
-import {readFileSync,realpathSync} from 'node:fs';
+import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {samePath} from './same-path.mjs';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 
 /** Identity of the installed plugin, never the caller's workspace. Unknown Git data is null. */
@@ -13,7 +14,7 @@ export function pluginProvenance(pluginRoot=root) {
   return r.status===0&&!r.error&&!r.signal?r.stdout.trim():null;
  };
  let own=false;
- try {const top=git(['rev-parse','--show-toplevel']);own=Boolean(top)&&realpathSync(top)===realpathSync(pluginRoot);} catch {}
+ try {const top=git(['rev-parse','--show-toplevel']);own=Boolean(top)&&samePath(top,pluginRoot);} catch {}
  if(!own) return {version,commit:null,dirty:null};
  const commit=git(['rev-parse','--verify','HEAD']);
  const status=commit?git(['status','--porcelain','--untracked-files=all']):null;

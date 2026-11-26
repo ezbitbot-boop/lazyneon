@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { isMainModule } from './is-main.mjs';
+import { samePath } from './same-path.mjs';
 
 import {acquireUpdateLock} from './update-lock.mjs';
 
@@ -19,13 +20,9 @@ function git(dir, args, deadline = Infinity) {
  if (r.error || r.signal || r.status !== 0) throw Error(r.error?.message || r.stderr?.trim() || 'git failed');
  return r.stdout.trim();
 }
-// Windows: git prints the long, forward-slash path (C:/Users/runneradmin/...) while the plugin root may be
-// an 8.3 short path (C:\Users\RUNNER~1\...). Only the native realpath expands short names; NTFS paths are
-// case-insensitive. POSIX keeps the exact realpath comparison.
-const canonical = process.platform === 'win32' ? p => realpathSync.native(p).toLowerCase() : p => realpathSync(p);
 function checkout(dir, deadline) {
  const top=git(dir,['rev-parse','--show-toplevel'],deadline);
- if(canonical(top)!==canonical(dir)) throw Error('Update requires plugin root to equal Git top-level');
+ if(!samePath(top,dir)) throw Error('Update requires plugin root to equal Git top-level');
  if (git(dir, ['symbolic-ref', '--short', 'HEAD'],deadline) !== 'main') throw Error('Update requires branch main');
  git(dir, ['remote', 'get-url', 'origin'],deadline);
  return git(dir, ['rev-parse', 'HEAD'],deadline);
