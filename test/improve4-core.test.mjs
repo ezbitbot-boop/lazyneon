@@ -52,8 +52,8 @@ test('improve4 route catalog covers families and privacy contract', () => {
  assert.match(read('skills/ulw-research/references/search-craft.md'),/No-Site-Name Rule/);
 });
 test('improve4 provenance and release retain explicit port boundaries', () => {
- assert.equal(JSON.parse(read('package.json')).version,'0.4.3');
- assert.equal(JSON.parse(read('plugin.json')).version,'0.4.3');
+ assert.equal(JSON.parse(read('package.json')).version,'0.4.4');
+ assert.equal(JSON.parse(read('plugin.json')).version,'0.4.4');
  for(const p of ['skills/ulw-research/ATTRIBUTION.md','docs/SKILL-SOURCES.md','docs/skill-source-receipts.json']) assert.match(read(p),/access-method/);
  assert.match(read('skills/ulw-research/ATTRIBUTION.md'),/CAPTCHA solving/);
 });

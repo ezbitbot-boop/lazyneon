@@ -1,4 +1,4 @@
-# LazyNeon (`v0.4.3`)
+# LazyNeon (`v0.4.4`)
 
 Gemini 4 Neon용 독립 Google Antigravity 플러그인이다. `/ulw` 실행, 모델 라우팅과 범용 가드를 코어에서 소유한다. MIT 원저작자 표기는 [NOTICE](NOTICE)에 보존한다.
 
@@ -97,7 +97,7 @@ LazyNeon update available: <old7> → <new7> (N commits). Run: <one-line command
 node bin/lazyneon update
 ```
 
-로컬 변경이나 미추적 파일이 있으면 거부한다. fast-forward만 허용하므로 로컬 커밋과 원격 이력이 갈라졌을 때도 거부한다. stash, rebase, 강제 덮어쓰기는 하지 않는다. 알림에 나오는 명령에는 설치 경로가 포함되어 있다.
+로컬 변경이나 미추적 파일이 있으면 거부한다. 갱신이 무시된(.gitignore) 로컬 파일을 덮어써야 하면 그 파일을 알리고 거부한다. fast-forward만 허용하므로 로컬 커밋과 원격 이력이 갈라졌을 때도 거부한다. stash, rebase, 강제 덮어쓰기는 하지 않는다. 알림에 나오는 명령에는 설치 경로가 포함되어 있다.
 
 SessionStart는 `LAZYNEON_AUTO_UPDATE=1`이 있어도 안내만 한다. 이 변수는 기존 `autoUpdate()` 직접 호출의 호환 옵션이며 세션 훅에서는 무시한다. `LAZYNEON_NO_UPDATE_CHECK=1`은 세션의 확인과 자동 갱신을 모두 끈다. 기존 `LAZYNEON_NO_AUTO_UPDATE=1`도 유지된다. `LAZYNEON_OFFLINE=1`은 항상 우선하며 세션 확인과 수동 update도 막는다. 실패한 확인도 24시간 동안 재시도하지 않는다.
 
