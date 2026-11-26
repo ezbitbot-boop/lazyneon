@@ -10,3 +10,4 @@ node_modules
 .lazyneon/
 .omo/
 config/issuer.json
+config/local.json

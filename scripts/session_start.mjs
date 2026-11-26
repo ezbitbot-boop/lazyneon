@@ -8,6 +8,7 @@ import { classifyTask } from './classify-task.mjs';
 import { sessionModel, rememberSessionModel } from './session-model.mjs';
 export { sessionModel } from './session-model.mjs';
 import { resolveWorkspace } from './workspace-path.mjs';
+import { SETTINGS, settings as localSettings } from './settings.mjs';
 // session_start.mjs — SessionStart 훅 (lazyneon).
 // 정적 접두부는 rules → ulw skill 순서로 고정하고 런타임 상태를 마지막에 붙인다:
 // 호스트가 보고한 세션 모델(없으면 unknown — 추정 금지), 진행 중인 /ulw 범위 잠금, 가드 팩 버전.
@@ -104,6 +105,14 @@ function pluginVersion() {
 	}
 }
 
+// Only what config/local.json turned away from the default (or could not apply) is shown; environment overrides stay silent as before.
+function localConfigLine() {
+	const local = localSettings();
+	const fromFile = Object.keys(SETTINGS).filter((key) => local.source[key] === "file" && local[key] !== SETTINGS[key].default).map((key) => `${key}=${local[key]}`);
+	if (!fromFile.length && !local.problems.length) return [];
+	return [`설정 파일 ${local.file}: ${fromFile.join(", ") || "기본값과 다른 항목 없음"}${local.problems.length ? ` (문제: ${local.problems.join("; ")})` : ""}`];
+}
+
 // Host rules and slash-command skill loaders own static text. Never inject twice.
 export function staticPrefix() { return ''; }
 export function runtimeContext(payload = {}) {
@@ -130,6 +139,7 @@ export function runtimeContext(payload = {}) {
 		"",
 		`플러그인: lazyneon ${pluginVersion()} / commit ${pluginProvenance().commit ?? "unknown"} / 가드 팩 ${guardPackVersion()}`,
 		`플러그인 경로: ${root}`,
+		...localConfigLine(),
 		`워크스페이스: ${cwd}`,
 		`세션 모델: ${model}${model === "unknown" ? " (호스트 미보고 — Neon이라고 가정하지 말 것; 사고 수준은 세션 설정에서만 바뀜)" : ""}`,
 		`세션 시작 시각(UTC): ${new Date().toISOString()}. 시간 민감 검색은 질문의 기준일을 적용하고, 현재 정보가 필요하면 검색 시점의 날짜·시간대를 확인한다. 이 시각은 증거 발생 시각이나 모델 지식 기준일이 아니다.`,

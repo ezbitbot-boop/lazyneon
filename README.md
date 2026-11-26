@@ -171,6 +171,7 @@ python3 tools/smoke_test.py
 | `LAZYNEON_NO_UPDATE_CHECK` | 1이면 세션 업데이트 확인과 자동 갱신 금지 |
 | `LAZYNEON_AUTO_UPDATE` | 기존 `autoUpdate()` 직접 호출 전용; SessionStart에서는 무시 |
 | `LAZYNEON_NO_AUTO_UPDATE` | 1이면 자동 갱신 금지, 켜기보다 우선 |
+| `LAZYNEON_CONFIG` | 설정 파일 경로. 기본 `config/local.json`(플러그인 폴더) |
 
 셸 인터프리터의 `-c`/`-e`/`--eval`/`-Command` 인라인 프로그램은 쓰기 여부를 정적으로 증명할 수 없어 전체 명령을 쓰기 크기에 포함한다. 작은 읽기 원라이너는 통과한다.
 

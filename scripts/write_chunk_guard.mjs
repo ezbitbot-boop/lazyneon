@@ -3,11 +3,13 @@
  * write_chunk_guard.mjs — PreToolUse silent-stream cutoff guard
  * Blocks oversized single writes (>24KB or >250 lines by default) before Antigravity
  * hits the 60-second silent-stream cutoff (antigravity-cli #1255).
- * Override via LAZYNEON_MAX_WRITE_BYTES / LAZYNEON_MAX_WRITE_LINES or disable via LAZYNEON_DISABLE_WRITE_CHUNK_GUARD=1.
+ * Override via LAZYNEON_MAX_WRITE_BYTES / LAZYNEON_MAX_WRITE_LINES or disable via LAZYNEON_DISABLE_WRITE_CHUNK_GUARD=1
+ * or "writeChunkGuard": false in config/local.json (scripts/settings.mjs; the environment wins).
  * This is a size/performance guard, not a safety guard: an unrecognised payload shape or an inspection
  * error allows the call and logs a warning on stderr. Only a measured oversize write is denied.
  */
 import { hostLimits, trustedHost } from "./long-output.mjs";
+import { settings } from "./settings.mjs";
 import { stdin } from "node:process";
 import { isReadOnlyTool } from "./hook_targets.mjs";
 
@@ -168,7 +170,7 @@ async function main() {
 	// Read the payload even when disabled: exiting with it unread breaks the host's pipe (EPIPE) once
 	// it outgrows the OS pipe buffer (16 KB on macOS).
 	const raw = process.env.ANTIGRAVITY_TOOL_INPUT || process.env.TOOL_INPUT || (await readStdin(STDIN_WAIT_MS));
-	if (process.env.LAZYNEON_DISABLE_WRITE_CHUNK_GUARD === "1") allow();
+	if (!settings().writeChunkGuard) allow();
 	const { body: content, warning } = inspectWrite(tryParseJson(raw), raw);
 	if (content) {
 		const limits = hostLimits(trustedHost());

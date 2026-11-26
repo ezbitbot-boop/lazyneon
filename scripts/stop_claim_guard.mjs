@@ -13,7 +13,7 @@ import {pluginProvenance} from './provenance.mjs';
  *   { hook_event_name: "Stop"|"SubagentStop", stop_hook_active: bool,
  *     last_assistant_message?: string, ... }
  * 차단 규약: stdout 에 {"decision":"continue","reason":"..."} 출력 + exit 0 (Antigravity Stop 계약: continue 만 루프 재진입, 그 외 값은 정지 허용).
- * LAZYNEON_SELF_CHECK는 기본 on이며 위험 주장에 재확인을 요청해 Stop을 막을 수 있다.
+ * 자기 점검(LAZYNEON_SELF_CHECK 또는 config/local.json "selfCheck")은 기본 on이며 위험 주장에 재확인을 요청해 Stop을 막을 수 있다.
  * 완료 근거 검사 모드: 기본은 observe — 차단했을 판정을 <workspace>/.lazyneon/stop-guard.jsonl 에 기록만 하고 통과시킨다.
  *   LAZYNEON_STOP_GUARD=enforce (대소문자·양끝 공백 무시) 일 때 완료 근거 검사도 Stop을 막는다.
  *   기록에는 답변 원문을 남기지 않는다: 답변과 점검 문장은 sha256 해시와 길이만 적는다(사건 내용이 기록 파일에 남지 않게).
@@ -40,6 +40,7 @@ const FILE_EVIDENCE_RE = /[\w./가-힣-]+\.(?:md|json|png|txt|html|csv|yml|yaml|
 
 import { hookTargets } from './hook_targets.mjs';
 import { resolveWorkspace } from './workspace-path.mjs';
+import { settings } from './settings.mjs';
 import { isMainModule } from './is-main.mjs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -670,7 +671,7 @@ async function main() {
 	const hasEvidence = completionEvidence(message, transcriptContent, evidenceCwd);
 	const legacyClaim = Boolean(message) && CLAIM_RE.test(message) && !hasEvidence;
 	const enforceMode = (process.env.LAZYNEON_STOP_GUARD || '').trim().toLowerCase() === 'enforce';
-	if (risky.length && !(legacyClaim && enforceMode) && (process.env.LAZYNEON_SELF_CHECK || 'on').trim().toLowerCase() !== 'off') {
+	if (risky.length && !(legacyClaim && enforceMode) && settings().selfCheck) {
 		if (legacyClaim) {
 			appendObserveLog(payload, { mode: 'observe', would_block: true, conversationId: payload.conversationId || null, reason: `[STOP CLAIM GUARD v${GUARD_PACK_VERSION}] 완료 선언에 반증 가능한 증거가 없다(자기 점검으로 대신 물음).`, answer: textDigest(message) }, 'observe');
 		}

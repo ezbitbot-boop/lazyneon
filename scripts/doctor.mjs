@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { liveRpcSkipReason, pythonVersionStatus } from './doctor-runtime.mjs';
 import { RULES_FILE_WARN_BYTES, RULES_TOTAL_WARN_BYTES } from "./rules-budget.mjs";
 import { staticPrefix, runtimeContext } from './session_start.mjs';
+import { SETTINGS, settings as localSettings } from './settings.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
@@ -26,6 +27,14 @@ function add(id, status, detail) {
 function nodeVersion() {
 	const major = Number.parseInt(process.versions.node.split(".")[0], 10);
 	add("node", major >= 20 ? "ok" : "fail", `node ${process.versions.node} (>=20 필요)`);
+}
+
+// config/local.json: show what the file switched and every defect, so a non-developer can see why a switch did not apply.
+function localConfig() {
+	const s = localSettings();
+	const values = Object.keys(SETTINGS).map(key => `${key}=${s[key]}(${s.source[key] === "env" ? "환경변수" : s.source[key] === "file" ? "설정 파일" : "기본"})`).join(", ");
+	if (s.problems.length) add("config", "warn", `${s.file}: ${s.problems.join("; ")} — 적용값: ${values}`);
+	else add("config", "ok", `${s.exists ? s.file : `${s.file} 없음(기본값)`} — 적용값: ${values}`);
 }
 
 function pythonVersion() {
@@ -370,7 +379,7 @@ function discoverLiveLanguageServer({ spawnSync, live, offline, platform, mockJs
 }
 
 export function liveRpcCheck(options = {}) {
- const settings = { spawnSync, live: process.argv.includes("--live"), offline: process.env.LAZYNEON_OFFLINE === "1", platform: process.platform, mockJson: process.env.LAZYNEON_LS_RPC_MOCK_JSON, ...options };
+ const settings = { spawnSync, live: process.argv.includes("--live"), offline: localSettings().offline, platform: process.platform, mockJson: process.env.LAZYNEON_LS_RPC_MOCK_JSON, ...options };
  performLiveRpcCheck(settings);
  return checks.at(-1);
 }
@@ -528,7 +537,7 @@ function skillsSourceReceipts() {
 		return;
 	}
 	// --online also confirms every verified pin exists on GitHub (network; slower).
-	const online = process.argv.includes("--online") && process.env.LAZYNEON_OFFLINE !== "1";
+	const online = process.argv.includes("--online") && !localSettings().offline;
 	const res = spawnSync("node", [radarScript, "audit", "--json", ...(online ? ["--remote"] : [])], {
 		cwd: root,
 		encoding: "utf8",
@@ -558,7 +567,7 @@ if (isMainModule(import.meta.url)) {
 const companion=companionStatus();
 add('companion',companion.installed&&!companion.compatible?'warn':'ok',companionLine(companion));
 const slow = [];
-for (const fn of [nodeVersion, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
+for (const fn of [nodeVersion, localConfig, pythonVersion, hooksWiring, skillsFrontmatter, skillsRoutingCoverage, skillsScriptRefs, skillsSourceReceipts, manifestVersions, scopeLock, modelProvider, rulesBudget, descriptionColons, liveRpcCheck]) {
 	const t0 = Date.now();
 	fn();
 	const ms = Date.now() - t0;
