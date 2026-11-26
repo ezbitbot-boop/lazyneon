@@ -5,14 +5,15 @@ import {guardRun,recordReplan,resumeRun,quotaDecision} from './run-policy.mjs';
 import {classifyTask} from './classify-task.mjs';
 import {resolveWorkspace} from './workspace-path.mjs';
 import {isMainModule} from './is-main.mjs';
+import {withinPath} from './same-path.mjs';
+import {fileURLToPath} from 'node:url';
 // State belongs to an explicit workspace/task, never to the plugin launcher cwd.
 export function usageGuard(payload={}) {
  try {return observeUsage(payload);} catch(error) {return {blocked:false,warning:`[미확인] usage state: ${error.message}`};}
 }
 function observeUsage(payload) {
  const cwd=resolveWorkspace(payload,null);
- const plugin=fs.realpathSync(new URL('..',import.meta.url));
- if(!cwd||fs.realpathSync(cwd)===plugin||fs.realpathSync(cwd).startsWith(plugin+path.sep)) return {blocked:false,warning:'[미확인] explicit non-plugin workspace required; state not saved'};
+ if(!cwd||withinPath(cwd,fileURLToPath(new URL('..',import.meta.url)))) return {blocked:false,warning:'[미확인] explicit non-plugin workspace required; state not saved'};
  const dir=path.join(cwd,'.lazyneon'),runs=path.join(dir,'runs');
  const task=typeof payload.task==='string'?payload.task:payload.run?.id??'host-invocation';
  const id=createHash('sha256').update(JSON.stringify([payload.conversationId??'',task])).digest('hex');
