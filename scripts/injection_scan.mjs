@@ -2,16 +2,21 @@
 import {readFileSync} from 'node:fs';
 import {isMainModule} from './is-main.mjs';
 const instruction=/(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions?|rules?|prompts?)|(?:system|developer|assistant)\s*(?:message|prompt|role|:)|\[(?:system|developer|assistant)\]|<\/?(?:system|developer|assistant|tool_call|function_call)>|(?:이전|위의|앞선)\s*(?:지시|명령|규칙).*?(?:무시|잊)|(?:execute|run|call)\s+(?:the\s+)?(?:tool|command)/i;
+// Variants seen in the 2026-11-26 verification: articles/quantifiers between the
+// verb and "previous", "everything above", Korean "앞의 내용은 전부 무시", and
+// imperative re-tasking. Regexes are only an extra warning; every block is
+// still wrapped as quoted evidence regardless of this label.
+const variants=/\b(?:ignore|disregard|forget|override|overlook|skip|bypass)\s+(?:(?:all|any|the|of|your|these|those|every|each)\s+)*(?:previous|prior|above|earlier|preceding|foregoing|former|original)\s+(?:\w+\s+)?(?:instructions?|rules?|prompts?|directions?|directives?|guidance|guidelines?|context|messages?|commands?|text)\b|\b(?:ignore|disregard|forget)\s+(?:everything|anything|all(?:\s+of\s+(?:that|this|the\s+above))?|what(?:ever)?\s+(?:was|is)\s+(?:said|written)|the\s+above)\s*(?:above|before|so\s+far|previously|earlier)?\b|\bnew\s+(?:task|instructions?|directive|objective)\s*:|\byou\s+(?:must|should|will|are\s+(?:required|instructed))\s+now\b|\b(?:mark|label|classify|report|certify|declare)\s+(?:this|the|that)\s+(?:file|evidence|document|image|video|recording|record)\s+as\s+(?:authentic|genuine|original|unaltered|untampered|clean|safe|verified)\b|(?:앞|위|이전|앞선|기존|지금까지)(?:의|에\s*나온|에서)?\s*(?:모든\s*)?(?:내용|지시|명령|규칙|지침|대화|말)\S*\s*(?:(?:은|는|을|를|도)\s*)?(?:전부|모두|다|싹\s*다)?\s*(?:무시|잊)|(?:지금부터|이제부터)\s*(?:너는|당신은|넌)/i;
 const protocol=/(?:"role"\s*:\s*"(?:system|developer|assistant)"|"(?:name|tool)"\s*:\s*"(?:run_command|exec_command|execute_command|bash|shell|write_file)"|you\s+are\s+(?:now\s+)?(?:a\s+|the\s+)?(?:system|developer|assistant|administrator)|<\|(?:im_start|system|assistant|developer)[^>]*>)/i;
 const invisible=/[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
 function reasons(text) {
  const normalized=text.normalize('NFKC').replace(invisible,'');const found=[];
- if(instruction.test(normalized)||protocol.test(normalized)) found.push('instruction');
+ if(instruction.test(normalized)||variants.test(normalized)||protocol.test(normalized)) found.push('instruction');
  if(/[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/.test(text)) found.push('hidden_unicode');
  if(/<!--[\s\S]*?(?:-->|$)|\bhidden\s*[=>]|display\s*:\s*none|visibility\s*:\s*hidden/i.test(text)) found.push('hidden_html');
  for(const match of normalized.matchAll(/(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{16,}={0,2}(?![A-Za-z0-9+/])/g)) {
   const decoded=Buffer.from(match[0],'base64').toString('utf8').normalize('NFKC').replace(invisible,'');
-  if(instruction.test(decoded)||protocol.test(decoded)) {found.push('encoded_instruction');break;}
+  if(instruction.test(decoded)||variants.test(decoded)||protocol.test(decoded)) {found.push('encoded_instruction');break;}
  }
  return found;
 }
