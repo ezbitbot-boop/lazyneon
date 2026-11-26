@@ -222,7 +222,7 @@ test("CLI: a blocked page is not bypassed without opt-in, and --allow-bypass nee
 test("insaneSearchPaths finds the default install and lets env override it", () => {
 	const home = fs.mkdtempSync(path.join(os.tmpdir(), "is-home-"));
 	try {
-		assert.deepEqual(insaneSearchPaths({}, home), { engineDir: "", python: "python3", standingConsent: false });
+		assert.deepEqual(insaneSearchPaths({}, home), { engineDir: "", python: process.platform === "win32" ? "python" : "python3", standingConsent: false });
 		const base = path.join(home, ".local", "share", "insane-search");
 		fs.mkdirSync(path.join(base, "skills", "insane-search", "engine"), { recursive: true });
 		const venvPython = process.platform === "win32" ? path.join(base, ".venv", "Scripts", "python.exe") : path.join(base, ".venv", "bin", "python");
@@ -237,9 +237,12 @@ test("insaneSearchPaths finds the default install and lets env override it", () 
 	}
 });
 
-test("insaneSearchPaths takes the venv Python from the platform's layout: Scripts\\python.exe on Windows, bin/python elsewhere", () => {
+test("insaneSearchPaths takes the venv Python from the platform's layout and falls back to the platform's interpreter name", () => {
 	const home = fs.mkdtempSync(path.join(os.tmpdir(), "is-venv-"));
 	try {
+		// Without a venv: python on Windows (the repo convention; python.org installers ship no python3.exe), python3 elsewhere.
+		assert.equal(insaneSearchPaths({}, home, "win32").python, "python");
+		for (const platform of ["linux", "darwin"]) assert.equal(insaneSearchPaths({}, home, platform).python, "python3");
 		const venv = path.join(home, ".local", "share", "insane-search", ".venv");
 		const windows = path.join(venv, "Scripts", "python.exe"), posix = path.join(venv, "bin", "python");
 		const install = (file) => {
@@ -252,7 +255,7 @@ test("insaneSearchPaths takes the venv Python from the platform's layout: Script
 		for (const platform of ["linux", "darwin"]) assert.equal(insaneSearchPaths({}, home, platform).python, "python3");
 		install(posix);
 		for (const platform of ["linux", "darwin"]) assert.equal(insaneSearchPaths({}, home, platform).python, posix);
-		assert.equal(insaneSearchPaths({}, home, "win32").python, "python3");
+		assert.equal(insaneSearchPaths({}, home, "win32").python, "python");
 		assert.equal(insaneSearchPaths({ ULW_INSANE_SEARCH_PYTHON: "py" }, home, "win32").python, "py");
 	} finally {
 		fs.rmSync(home, { recursive: true, force: true });
@@ -275,7 +278,8 @@ async function withConsentEngine(payload, fn) {
 		process.env.HOME = home;
 		process.env.USERPROFILE = home;
 		delete process.env.ULW_INSANE_SEARCH_DIR;
-		process.env.ULW_INSANE_SEARCH_PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+		// No venv in the fake home: the engine runs on the default interpreter, python on Windows and python3 elsewhere.
+		delete process.env.ULW_INSANE_SEARCH_PYTHON;
 		const dir = path.join(home, "session");
 		fs.mkdirSync(dir);
 		fs.writeFileSync(path.join(dir, "claims.jsonl"), JSON.stringify(highClaim()));
