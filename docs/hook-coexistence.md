@@ -8,7 +8,7 @@ simulator checks both plugin orders. Real host event delivery remains unverified
 | Event | Core order | Workspace order | Combined result |
 | --- | --- | --- | --- |
 | SessionStart | runtime, optional update notice | domain runtime, companion notice | concatenate injectSteps; neither blocks |
-| PreToolUse | write_chunk_guard | evidence_guard pre-tool-use | any deny wins; absence of a decision cannot override deny |
+| PreToolUse | write_chunk_guard, then destructive_guard (denies drive, home and out-of-workspace wipes; no switch) | evidence_guard pre-tool-use | any deny wins; absence of a decision cannot override deny |
 | PostToolUse | markdown/json batch, then lookup batch | domain_feedback batch | persist separate feedback, do not reverse earlier decisions |
 | PreInvocation | post_tool_feedback inject, then usage_guard | domain_feedback inject | concatenate notices; retain every refusal |
 | Stop | stop_claim_guard, then reply_format_guard | no registered hook | core completion evidence and advisory prose notice |

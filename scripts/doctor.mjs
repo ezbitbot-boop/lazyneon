@@ -94,6 +94,11 @@ const EXPECTED_HOOKS = {
             "type": "command",
             "command": "node ./scripts/write_chunk_guard.mjs",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node ./scripts/destructive_guard.mjs",
+            "timeout": 30
           }
         ]
       }

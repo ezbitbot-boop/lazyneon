@@ -26,9 +26,11 @@ for (const [label, payload, disabled, denied] of [
         const result = spawnSync(hook.command, { shell: true, cwd: root, env,
           input: typeof payload === 'string' ? payload : JSON.stringify(payload), encoding: 'utf8', timeout: 5000 });
         assert.ifError(result.error);
-        assert.equal(result.status, denied ? 1 : 0, result.stderr);
+        // Only the size guard judges these payloads; destructive_guard has no opinion on them.
+        const expectDeny = denied && hook.command.includes('write_chunk_guard');
+        assert.equal(result.status, expectDeny ? 1 : 0, result.stderr);
         const output = JSON.parse(result.stdout);
-        if (denied) {
+        if (expectDeny) {
           assert.equal(output.decision, 'deny');
           assert.match(output.reason, /stream cutoff guard/);
         } else {
