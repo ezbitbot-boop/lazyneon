@@ -148,7 +148,8 @@ test("dirty+behind: leaves files untouched and prints notice", () => {
 
 		assert.equal(cap.lines.length, 1, "exactly one line written");
 		assert.match(cap.lines[0], /local changes present, not auto-updated/, "notice includes 'local changes present'");
-		assert.match(cap.lines[0], /bin\/lazyneon.* update/, "notice includes safe update command");
+		// Separator-agnostic: Windows prints C:\...\bin\lazyneon.
+		assert.match(cap.lines[0], /bin[\\/]lazyneon.* update/, "notice includes safe update command");
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
