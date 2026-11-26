@@ -9,7 +9,7 @@ SVG variants (next to the master, or in --out-dir):
   <name>-favicon.svg        tight square version for browser tabs (works as favicon.svg)
   <name>-app-icon.svg       mark in white (or --icon-fg) on a rounded-square tile (--icon-bg)
 
-Raster (needs any backend of render_png.py: cairosvg, rsvg-convert, inkscape, Chrome/Chromium, or macOS Quick Look):
+Raster (needs any backend of render_png.py: cairosvg, rsvg-convert, inkscape, Chrome/Chromium, or macOS Quick Look with Pillow):
   --png 32 512 1024         PNGs of every SVG variant written (transparent)
   --web-icons               favicon.ico (16/32/48), favicon-16/32/48.png, apple-touch-icon.png (180),
                             icon-192.png, icon-512.png, maskable-512.png, plus site.webmanifest and
@@ -162,7 +162,7 @@ def main():
     if any(svglib.lightness(c) > 0.97 for c in colors) and len(colors) > 1:
         print("note: master contains white paint — check the one-colour files for blobs (fake cut-outs).")
 
-    raster = []
+    raster, renderer = [], {}  # renderer: PNG path -> backend that drew it
     if a.png:
         for p in list(written):
             for size in a.png:
@@ -173,7 +173,8 @@ def main():
                 ratio = (vb_w / vb_h) if (vb_w > 0 and vb_h > 0) else 1.0
                 w, h = (size, max(1, round(size / ratio))) if ratio >= 1 else (max(1, round(size * ratio)), size)
                 png = p[:-4] + f"-{size}.png"
-                if render_png.render(p, png, w, h):
+                renderer[png] = render_png.render(p, png, w, h)
+                if renderer[png]:
                     raster.append(png)
                 else:
                     print("PNG export skipped: no rendering backend (see: python3 scripts/render_png.py --which)")
@@ -198,7 +199,8 @@ def main():
             ok = True
             for src, fname, size in jobs:
                 dst = os.path.join(out_dir, fname)
-                if render_png.render(src, dst, size, size):
+                renderer[dst] = render_png.render(src, dst, size, size)
+                if renderer[dst]:
                     raster.append(dst)
                 else:
                     ok = False
@@ -228,7 +230,7 @@ def main():
                 raster += [os.path.join(out_dir, "site.webmanifest"), os.path.join(out_dir, "head-snippet.html")]
 
     for p in written + raster:
-        print("wrote", p)
+        print("wrote", p, *(["via", renderer[p]] if renderer.get(p) else []))
 
 
 if __name__ == "__main__":

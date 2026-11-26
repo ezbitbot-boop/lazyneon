@@ -79,9 +79,12 @@ for (const [script,args,payload] of [
  // Both runs must report the private copy's own commit and clean tree, not an unknown or shared-checkout state.
  if(script==='codegraph.mjs') assert.deepEqual(JSON.parse(linked.stdout).plugin,{version:JSON.parse(read('plugin.json')).version,commit:plugin.commit,dirty:false});
 });
-test('R3 M4 smoke validates the repository skill inventory', () => {
+// The smoke output (seconds per step, the renderer and Chrome build behind each PNG) goes to the test log, so a slow or
+// timed-out run shows where the time went.
+test('R3 M4 smoke validates the repository skill inventory', t => {
  const r=spawnSync(process.platform==='win32'?'python':'python3',['tools/smoke_test.py'],{cwd:root,encoding:'utf8',env,timeout:120000});
  assert.equal(r.status,0,r.stdout+r.stderr);
+ for(const line of r.stdout.split(/\r?\n/)) if(line.trim()) t.diagnostic(line);
  assert.doesNotMatch(read('tools/smoke_test.py'),/len\(skill_dirs\)\s*==\s*\d+/);
 });
 test('R3 L1 README states notify-only SessionStart and disabling precedence', () => {

@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILL = os.path.join(ROOT, "skills", "logo-design")
@@ -31,11 +32,19 @@ LOCKUP = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 256"><title
 failures = []
 
 
+# Which renderer drew each PNG ("... .png ... via chrome"), why one was passed over ("note:"), and how each Chrome
+# run went ("debug:", from RENDER_PNG_DEBUG=1). PNG cost and correctness depend on the renderer, so the log shows it.
+RENDER_LINE = re.compile(r"\.png\b.*\bvia \w|^\s*(note|debug): ")
+
+
 def run(name, args, expect=(), cwd=None):
     """Run a script; fail on non-zero exit, a traceback, or missing expected text/files."""
     env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["RENDER_PNG_DEBUG"] = "1"
+    started = time.monotonic()
     p = subprocess.run([sys.executable] + args, cwd=cwd or SKILL, env=env, capture_output=True)
+    elapsed = time.monotonic() - started
     out = (p.stdout + p.stderr).decode("utf-8", "replace")
     problems = []
     if p.returncode != 0:
@@ -49,11 +58,15 @@ def run(name, args, expect=(), cwd=None):
         elif e not in out:
             problems.append(f"output lacks {e!r}")
     status = "ok  " if not problems else "FAIL"
-    print(f"[{status}] {name}")
+    print(f"[{status}] {name} ({elapsed:.1f} s)")
     if problems:
         failures.append(name)
         print("       " + "; ".join(problems))
         print("       " + out.strip().replace("\n", "\n       ")[-2500:])
+    else:
+        for line in out.splitlines():
+            if RENDER_LINE.search(line):
+                print("       " + line.strip())
     return out
 
 
@@ -141,6 +154,8 @@ def main():
         run("export_variants (SVG)", [S("export_variants.py"), sym, "--out-dir", os.path.join(tmp, "export"),
                                       "--mono", "#0F7C80", "--icon-bg", "#0F7C80"])
         which = run("render_png --which", [S("render_png.py"), "--which"])
+        # The renderer decides the PNG cost: headless Chrome is a full browser launch per PNG.
+        print("       " + next((line for line in which.splitlines() if "available backends:" in line), which.strip()))
         if "available backends: none" not in which and "available backends:" in which:
             png = os.path.join(tmp, "a.png")
             run("render_png (PNG)", [S("render_png.py"), sym, "-o", png, "--size", "64"], [png])
@@ -172,4 +187,6 @@ def main():
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
+    # Line by line even into a pipe, so a run killed by a caller's timeout still shows the steps it finished.
+    sys.stdout.reconfigure(line_buffering=True)
     main()

@@ -9,6 +9,7 @@ import {acceptWorker} from '../scripts/worker-contract.mjs';
 import {makeHandoff,verifyHandoff,noteData} from '../scripts/handoff-contract.mjs';
 import {classifyTask,executeGate} from '../scripts/classify-task.mjs';
 import {usageGuard} from '../scripts/usage_guard.mjs';
+import {withinPath} from '../scripts/same-path.mjs';
 import {runtimeContext,staticPrefix} from '../scripts/session_start.mjs';
 import {byModel} from '../scripts/selfcheck_stats.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -52,6 +53,20 @@ test('R13 M1 task isolation checkpoint transitions and no implicit workspace',t=
  const empty=temp(t);assert.equal(cli('usage_guard',{},empty).status,0);assert.equal(fs.existsSync(path.join(empty,'.lazyneon')),false);
  const blocked=usageGuard({...p,quota:{observed_at:new Date().toISOString(),account:{remaining_percent:0}}});assert.equal(blocked.blocked,true);
  assert.equal(usageGuard(p).blocked,true);
+});
+test('R13 M1 usage state is never saved inside the plugin, however the host spells the path',t=>{
+ // NTFS ignores case and Windows hosts may pass an 8.3 short path (C:\Users\RUNNER~1\...); it is still the plugin.
+ const inside=[root,path.join(root,'scripts')];
+ if(process.platform==='win32')inside.push(root.toUpperCase(),path.join(root,'scripts').toLowerCase());
+ for(const cwd of inside)assert.match(usageGuard({cwd,task:'count rows'}).warning??'',/explicit non-plugin workspace required/,cwd);
+ const d=temp(t),plugin=path.join(d,'lazyneon'),scripts=path.join(plugin,'scripts'),sibling=path.join(d,'lazyneon-work');
+ fs.mkdirSync(scripts,{recursive:true});fs.mkdirSync(sibling);
+ // os.tmpdir() spelling against the native long spelling (8.3 on Windows runners, /var vs /private/var on macOS).
+ for(const dir of [plugin,fs.realpathSync.native(plugin)]){
+  assert.equal(withinPath(plugin,dir),true);assert.equal(withinPath(scripts,dir),true);
+  assert.equal(withinPath(sibling,dir),false,'a name-prefix sibling is not inside');assert.equal(withinPath(d,dir),false);
+ }
+ if(process.platform==='win32')assert.equal(withinPath(scripts.toUpperCase(),plugin),true);
 });
 test('R13 M2 resume and payload cannot reset replan cap',t=>{
  const d=temp(t),p={cwd:d,task:'implement 50 files'};usageGuard(p);

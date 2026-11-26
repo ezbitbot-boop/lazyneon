@@ -7,8 +7,12 @@ The SVG is fitted ("contain") into an exact WIDTH×HEIGHT box with optional padd
 Backends are tried in order until one works:
   1. cairosvg (python package)   2. rsvg-convert   3. inkscape
   4. headless Chrome / Chromium / Edge / Brave     5. macOS Quick Look (qlmanage) — last resort
-Quick Look renders on opaque white; transparency is recovered by rendering on white and black
-("difference matting") when Pillow is installed, otherwise the PNG stays opaque white.
+Quick Look renders on opaque white and crops to a square; with Pillow installed the PNG is cropped and its transparency
+recovered by rendering on white and black ("difference matting"). Without Pillow Quick Look is unavailable: a wrong,
+opaque image is worse than none. Each failed renderer is reported on stderr ("note: ..."); RENDER_PNG_DEBUG=1 also
+reports every Chrome run (seconds to the screenshot and to exit, the browser's stderr).
+On macOS, Google Chrome for Testing (the automation build, no auto-updater) is preferred over Google Chrome: on a fresh
+machine Chrome's first launches install its updater, about 20 s each on CI runners.
 
 Usage:
   python3 scripts/render_png.py logo.svg -o logo.png --size 512
@@ -36,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import svglib  # noqa: E402,F401  (sets UTF-8 console output)
 
 CHROME_CANDIDATES = [
+    "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -106,9 +111,17 @@ def available_backends():
         out.append("inkscape")
     if find_chrome():
         out.append("chrome")
-    if shutil.which("qlmanage"):
+    if shutil.which("qlmanage") and _has_pillow():
         out.append("qlmanage")
     return out
+
+
+def _has_pillow():
+    try:
+        import PIL.Image  # type: ignore  # noqa: F401
+        return True
+    except Exception:
+        return False
 
 
 # ----------------------------------------------------------------------------- backends
@@ -182,12 +195,17 @@ def screenshot_html(html_path, png, w, h):
                "--no-default-browser-check", "--use-mock-keychain", "--password-store=basic", "--disable-extensions",
                "--default-background-color=00000000", f"--window-size={w},{h}", f"--screenshot={shot}",
                f"--user-data-dir={os.path.join(tmp, 'profile')}", "file://" + html_path]
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        log_path = os.path.join(tmp, "chrome.log")
+        started = time.monotonic()
+        with open(log_path, "wb") as log:
+            proc = subprocess.Popen(cmd, stdout=log, stderr=log)
         deadline = time.time() + 45
-        last = -1
+        last, shot_at = -1, None
         while time.time() < deadline:
             if os.path.exists(shot):
                 size = os.path.getsize(shot)
+                if size > 0 and shot_at is None:
+                    shot_at = time.monotonic() - started
                 if size > 0 and size == last:
                     break
                 last = size
@@ -198,9 +216,17 @@ def screenshot_html(html_path, png, w, h):
             proc.wait(timeout=0.5)  # it may exit by itself after --screenshot; otherwise stop the whole tree
         except subprocess.TimeoutExpired:
             pass
+        status = f"exit {proc.returncode}" if proc.poll() is not None else "still running, stopped"
         _stop(proc)
+        ended = time.monotonic() - started
+        with open(log_path, "rb") as log:
+            lines = [line.strip() for line in log.read().decode("utf-8", "replace").splitlines() if line.strip()]
+        stderr = " | ".join(lines[-4:])[-600:] or "empty"
         if not os.path.exists(shot):
-            raise RuntimeError("chrome produced no file")
+            raise RuntimeError(f"chrome produced no file in {ended:.1f} s ({status}); browser stderr: {stderr}")
+        if os.environ.get("RENDER_PNG_DEBUG") == "1":
+            print(f"  debug: {os.path.basename(chrome)} {w}x{h}: screenshot after {shot_at or ended:.1f} s, {status} after "
+                  f"{ended:.1f} s; browser stderr: {stderr}", file=sys.stderr)
         shutil.move(shot, png)
 
 
@@ -217,8 +243,14 @@ def _qlmanage_once(svg_markup, w, h, tmp, name):
     return out
 
 
-def _qlmanage(svg_file, png, w, h, want_alpha=True):
-    # Quick Look crops non-square canvases and ignores transparency: render a square canvas, crop after.
+def _qlmanage(svg_file, png, w, h):
+    # Quick Look crops non-square canvases and ignores transparency: render a square canvas on white and on black,
+    # recover alpha from the difference, then crop. Both steps need Pillow; without it the only result is a wrong image.
+    try:
+        from PIL import Image  # type: ignore
+    except Exception:
+        raise RuntimeError("unavailable: Quick Look renders on opaque white and crops to a square; transparency "
+                           "and cropping need Pillow (pip install Pillow)") from None
     side = max(w, h)
     with open(svg_file, encoding="utf-8") as fh:
         markup = fh.read()
@@ -227,33 +259,24 @@ def _qlmanage(svg_file, png, w, h, want_alpha=True):
                                       f'viewBox="{-ox:g} {-oy:g} {side} {side}">', markup, count=1)
     with tempfile.TemporaryDirectory() as tmp:
         white = _qlmanage_once(square, w, h, tmp, "white")
-        try:
-            from PIL import Image  # type: ignore
-        except Exception:
-            shutil.copy(white, png)
-            print("  note: Quick Look output is opaque white (install Pillow for transparency).", file=sys.stderr)
-            return
         black_markup = re.sub(r"(<svg\b[^>]*>)", r'\1<rect x="-100000" y="-100000" width="200000" height="200000" fill="#000"/>',
                               square, count=1)
         black = _qlmanage_once(black_markup, w, h, tmp, "black")
         iw = Image.open(white).convert("RGB")
         ib = Image.open(black).convert("RGB").resize(iw.size)
-        if want_alpha:
-            flat = lambda im: list(im.get_flattened_data() if hasattr(im, "get_flattened_data") else im.getdata())
-            wd, bd = flat(iw), flat(ib)
-            px = []
-            for (wr, wg, wb), (br, bg_, bb) in zip(wd, bd):
-                a = 255 - max(wr - br, wg - bg_, wb - bb)
-                if a >= 255:
-                    px.append((br, bg_, bb, 255))
-                elif a <= 0:
-                    px.append((0, 0, 0, 0))
-                else:
-                    px.append((min(255, br * 255 // a), min(255, bg_ * 255 // a), min(255, bb * 255 // a), a))
-            out = Image.new("RGBA", iw.size)
-            out.putdata(px)
-        else:
-            out = iw
+        flat = lambda im: list(im.get_flattened_data() if hasattr(im, "get_flattened_data") else im.getdata())
+        wd, bd = flat(iw), flat(ib)
+        px = []
+        for (wr, wg, wb), (br, bg_, bb) in zip(wd, bd):
+            a = 255 - max(wr - br, wg - bg_, wb - bb)
+            if a >= 255:
+                px.append((br, bg_, bb, 255))
+            elif a <= 0:
+                px.append((0, 0, 0, 0))
+            else:
+                px.append((min(255, br * 255 // a), min(255, bg_ * 255 // a), min(255, bb * 255 // a), a))
+        out = Image.new("RGBA", iw.size)
+        out.putdata(px)
         s = out.size[0] / side
         box = (round(ox * s), round(oy * s), round((ox + w) * s), round((oy + h) * s))
         out.crop(box).resize((w, h)).save(png)
@@ -263,22 +286,32 @@ BACKENDS = {"cairosvg": _cairosvg, "rsvg-convert": _rsvg, "inkscape": _inkscape,
 
 
 def render(svg_path, png_path, width, height, padding=0.0, bg=None, backend=None):
-    """Render svg_path into png_path at exactly width×height. Returns the backend used, or None."""
+    """Render svg_path into png_path at exactly width×height. Returns the backend used, or None.
+    Every failed attempt is reported on stderr, so a fallback or a refusal never goes unexplained."""
     markup = wrap_svg(svg_path, width, height, padding, bg)
     order = [backend] if backend else available_backends()
+    failures, used = [], None
     with _tempdir() as tmp:
         wrapped = os.path.join(tmp, "wrapped.svg")
         with open(wrapped, "w", encoding="utf-8") as fh:
             fh.write(markup)
         for name in order:
             for _attempt in range(2 if name == "chrome" else 1):  # a browser can fail once on a busy machine
+                started = time.monotonic()
                 try:
                     BACKENDS[name](wrapped, png_path, width, height)
-                    if os.path.exists(png_path):
-                        return name
-                except Exception:  # retry, then try the next backend
+                except Exception as exc:  # retry, then try the next backend
+                    failures.append(f"{name} failed after {time.monotonic() - started:.1f} s: {exc}")
                     continue
-    return None
+                if os.path.exists(png_path):
+                    used = name
+                    break
+                failures.append(f"{name} wrote no file")
+            if used:
+                break
+    for failure in failures:
+        print(f"  note: {os.path.basename(png_path)}: {failure}", file=sys.stderr)
+    return used
 
 
 def write_ico(png_paths, ico_path):
