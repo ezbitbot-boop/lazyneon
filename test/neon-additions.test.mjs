@@ -54,7 +54,10 @@ test('N3 Office inputs use Neon direct with conditional conversion fallback',()=
 });
 test('N4 long context chunks first and Carbon is last resort with dated cost note',()=>{
  const r=classify('read 2000000 tokens'); assert.equal(r.model,'gemini-4-neon-high');
- assert.equal(r.context_policy.unified_limit_tokens,1048576);
+ // https://antigravity.google/docs/models: Neon in Antigravity is up to 512K; 1M is the direct API limit.
+ assert.equal(r.context_policy.unified_limit_tokens,524288);
+ assert.equal(r.context_policy.api_limit_tokens,1048576);
+ assert.match(r.context_policy.limit_source,/antigravity\.google\/docs\/models/);
  assert.equal(r.context_policy.strategy,'chunk_with_output_reserve');
  assert.match(r.context_policy.fallback_condition,/last.resort/);
  assert.match(r.context_policy.cost_note,/2026-12-01.*2/);

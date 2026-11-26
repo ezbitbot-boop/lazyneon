@@ -1,5 +1,7 @@
 # Gemini 4 Argon 실사용 노트 (2026-10-09 ~ 11-03)
 
+> 기록용. Gemini 4 Argon은 2026-11-30에 Antigravity에서 제거된다(https://antigravity.google/docs/models). 라우팅에서는 2026-11-20에 이미 뺐다.
+
 출시(9/30 제한 공개, 10/13 GA) 후 2주간 수집한 1차 사용기에서 **둘 이상의 독립 출처가 일치한 관찰**만 적는다. 규칙(`rules/AGENTS.md` `<argon_runtime_constraints>`)과 스킬의 근거 문서다. 수치는 각 출처의 자체 측정이며 재현하지 않았다.
 
 ## 1. 호스트(Antigravity) 수준 제약

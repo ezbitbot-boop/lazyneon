@@ -17,10 +17,10 @@ Open your reply with the line `ULW-RESEARCH MODE ENABLED!`. If another active mo
 
 ## How this maps to Antigravity subagents
 
-- Stand up waves via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn (`flash` = Hydrogen collection; judgment lanes stay in the Neon session because `pro` runs Hydrogen XHigh, antigravity-cli #1824/#1710; `"flash_lite"` only for 0% primary quota emergency fallback; every role is spelled out in `Prompt`).
+- Stand up waves via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn (`flash` = Hydrogen collection; judgment lanes stay in the Neon session because `pro` runs Hydrogen XHigh, antigravity-cli #1824/#1710; no emergency model fallback: at 0% quota, checkpoint and stop; every role is spelled out in `Prompt`).
 - Act as the information broker: subagents cannot see each other's replies or receive mid-run messages, so collect returned results on completion, fold leads and debate rounds into the next wave's `Prompt`, journal shared state in `$SESSION_DIR` (`expansion-log.md`, `claim-graph.md`, `sources-ledger.md`) while workers report only in reply text, and account for every spawned subagent before finishing (subagents terminate on completion).
 - Full Antigravity `invoke_subagent` tool-mapping table and broker mechanics: [references/wave-composition.md](references/wave-composition.md).
-- Model routing: `Model: roleModel` for collection lanes including `browser` (`flash` = Hydrogen collection). Skeptic, judgment, security and final approval run in the Neon session itself, never as a `pro` subagent; `"flash_lite"` only as the 0% primary-quota emergency fallback. Research on client/case or evidence material is not delegated at all.
+- Model routing: `Model: roleModel` for collection lanes including `browser` (`flash` = Hydrogen collection). Skeptic, judgment, security and final approval run in the Neon session itself, never as a `pro` subagent. There is no emergency model fallback (Flash-Lite is not offered in Antigravity); at 0% primary quota, checkpoint and stop. Research on client/case or evidence material is not delegated at all.
 
 ## Authority while active
 
@@ -49,7 +49,7 @@ Saturation is a knowledge-production protocol, not just more searching: the sess
 
 ### Coordinate via native `invoke_subagent` waves and journal to the Markdown Claim Ledger in real time
 
-- Coordinate all waves via `invoke_subagent` (`Model: roleModel`, `"flash_lite"` emergency fallback only), never rename `$SESSION_DIR` (its timestamp is the start clock), journal every finding/source/quote/number/lead into `$SESSION_DIR/claim-graph.md`, `expansion-log.md`, and `sources-ledger.md` the instant it lands, and after context loss re-read `brief.md`, `expansion-log.md`, and `claim-graph.md` before resuming.
+- Coordinate all waves via `invoke_subagent` (`Model: roleModel`, no emergency model fallback), never rename `$SESSION_DIR` (its timestamp is the start clock), journal every finding/source/quote/number/lead into `$SESSION_DIR/claim-graph.md`, `expansion-log.md`, and `sources-ledger.md` the instant it lands, and after context loss re-read `brief.md`, `expansion-log.md`, and `claim-graph.md` before resuming.
 - Full real-time Markdown Claim Ledger journaling and compaction-recovery protocol: [references/epistemic-instrumentation.md](references/epistemic-instrumentation.md).
 
 ### Deliverable lane, format, and the empty-info interview
@@ -62,14 +62,14 @@ Saturation is a knowledge-production protocol, not just more searching: the sess
 ## Phase 1 — Stand up the team (DEFAULT composition)
 
 - For MASS research ("mass ulw research", "mulw research", "ulw mass research" in any language), scale waves rather than roster: chain `Model: roleModel` `invoke_subagent` waves at the runtime's parallel ceiling from EXPAND leads until convergence, run a dedicated `Model: roleModel` attack wave in Phase 3, and reduce synthesis through parallel `Model: roleModel` lanes into one final `Model: roleModel` reducer under all standard gates.
-- Otherwise launch a parallel wave as the DEFAULT immediately after `brief.md` via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn for axis owners and skeptic evidence-gathering (`flash` = Hydrogen collection; `"flash_lite"` emergency fallback only), within the `brief.md` budget. Skeptic verdicts and judgment stay in the Neon session (`pro` runs Hydrogen XHigh).
-- Binding rules: one member per axis (ownership, never job title), runtime-maximum roster, role-based `Model: roleModel` routing (`"flash_lite"` fallback only), literal user routing words, at least one skeptic lane whose attack the Neon session judges itself, mandatory `## EXPAND` reply tails, and shared state in `$SESSION_DIR` files.
+- Otherwise launch a parallel wave as the DEFAULT immediately after `brief.md` via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn for axis owners and skeptic evidence-gathering (`flash` = Hydrogen collection), within the `brief.md` budget. Skeptic verdicts and judgment stay in the Neon session (`pro` runs Hydrogen XHigh).
+- Binding rules: one member per axis (ownership, never job title), runtime-maximum roster, role-based `Model: roleModel` routing (no emergency model fallback), literal user routing words, at least one skeptic lane whose attack the Neon session judges itself, mandatory `## EXPAND` reply tails, and shared state in `$SESSION_DIR` files.
 - Full MASS research procedure, worked `invoke_subagent` launch template, roster rules, wave lifecycle table, and member brief contract: [references/wave-composition.md](references/wave-composition.md).
 
 ## Phase 2 — Saturation wave
 
 - Launch the entire first wave in a single turn via parallel flat `invoke_subagent` calls (axis owners plus bounded lanes for unreachable territories; never launch sequentially).
-- Record `예산: <N> 레인 / <M> 웨이브 / 세션 한도 추정 <%>` in `brief.md` first (default 4 lanes/wave, 2 waves; ask the user to exceed; route each lane via `Model: roleModel`, `"flash_lite"` fallback only; when capped, drop right-hand table columns first while keeping one browsing lane when `Browsing: yes`).
+- Record `예산: <N> 레인 / <M> 웨이브 / 세션 한도 추정 <%>` in `brief.md` first (default 4 lanes/wave, 2 waves; ask the user to exceed; route each lane via `Model: roleModel`, no emergency model fallback; when capped, drop right-hand table columns first while keeping one browsing lane when `Browsing: yes`).
 - Embed a unique role protocol, the `rules/AGENTS.md` worker contract (termination conditions, ≤40-line return, chunked writes), and a `## EXPAND` tail (capped at 5 leads/lane) in every lane prompt.
 - X lanes are 0 in Antigravity (`x_search` does not exist): when `X/social signal: yes`, substitute `site:x.com`/`site:twitter.com`, nitter mirrors, and indexed coverage, and record the substitution in `brief.md`.
 - The browsing column is binding: when `Browsing: yes`, spawn a browsing-lane owner with connected browser tooling (e.g. Playwright MCP) in wave 1 to capture full-page screenshots and rendered text (never fetch-only), or record `browsing: unavailable` and use archive copies.

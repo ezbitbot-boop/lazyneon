@@ -70,7 +70,7 @@ The fill-in run used about 4 weekly points for 119 calls (about 0.034 per call).
 | `long_execution` | `long_execution` | `gemini-4-hydrogen-high` | `-` |
 | `implementation` | `implementation` | `gemini-4-neon-high` | `gemini-4-neon-medium` |
 | `sensitive` | `pii_inject_docfmt` | `gemini-4-neon-high` | `gemini-4-neon-high` |
-| `long_context` | `long_context` | `gemini-4-neon-high` | `gemini-4-carbon-high` |
+| `long_context` | `long_context` | `gemini-4-neon-high` | `gemini-4-carbon-medium` |
 
 Size (`single` / `subagents`): (1) ≥3 code-file paths in the prompt (e.g. `src/a.ts src/b.ts src/c.ts`) → subagents; (2) explicit file count ≥3 ("3 files", "3개 파일") → subagents; (3) `modes.subagents.size_signals` keywords ("parallel", "독립적", "여러 파일") → subagents; otherwise single.
 
@@ -190,11 +190,19 @@ Quota rule: Carbon only for long-context input; default and verdicts run on Argo
 Pilot, orchestration style (8 cases F06/F12/F13/F10, n too small to conclude): a split pipeline (Carbon plan, Argon medium implement, Carbon review) passed 6/8 against 4/8 for Flash worker plus Argon verifier. The gap was all F13 code fixes (Flash made no edits, 0/2). The split pipeline took about 2-3x longer. Neither style passed the long Korean report family (F12, 0/2). Four-arm numbers (Swarm, Orchestrator, native, Lazy) follow in the PR discussion.
 
 Caveats:
-- `invoke_subagent.Model` documents only `inherit`, `flash` and `flash_lite`. This table sets the session model; explicit model ids as the subagent `Model` are unverified.
+- `invoke_subagent.Model` documents only `inherit`, `flash` and `flash_lite`; Flash-Lite is not in the Antigravity model table, so the routing table no longer lists it and an exhausted quota means checkpoint and stop. This table sets the session model; explicit model ids as the subagent `Model` are unverified.
 
 ## mid 1137 — Neon 기능 및 비용 계약
 
-공식 사실은 이번 소유자 입력을 따른다: LOW/MEDIUM/HIGH/XHIGH; MINIMAL 및 thinking_budget → HTTP 400; 입력+출력 통합 1,048,576 tokens; 공유 접두부 ≥4,096 tokens 암시적 캐시; Office/ODF 직접 입력; previous_interaction_id로 gemini-4-hydrogen 인계. 호스트 지원 및 정확도·비용은 [미측정]. 실행 절차는 skills/ulw/SKILL.md의 Neon 실행 계약을 따른다.
+공식 사실은 이번 소유자 입력을 따른다: LOW/MEDIUM/HIGH/XHIGH; MINIMAL 및 thinking_budget → HTTP 400; 입력+출력 통합 1,048,576 tokens(API 직접 호출 기준); 공유 접두부 ≥4,096 tokens 암시적 캐시; Office/ODF 직접 입력; previous_interaction_id로 gemini-4-hydrogen 인계. 호스트 지원 및 정확도·비용은 [미측정]. 실행 절차는 skills/ulw/SKILL.md의 Neon 실행 계약을 따른다.
+
+## Antigravity 모델 문서 반영 (2026-11-26)
+
+출처: https://antigravity.google/docs/models (2026-11-26 확인).
+
+- Antigravity 안의 Gemini 4 Neon 컨텍스트는 "Up to 512K tokens"다. `long_context.context_policy.unified_limit_tokens`는 524,288이고 1,048,576은 `api_limit_tokens`(API 직접 호출)로만 남긴다. `scripts/long-output.mjs`의 기본 컨텍스트 한도도 524,288이다(설치자 증거가 있으면 최대 1,048,576).
+- Gemini 3.8 Flash와 Argon은 2026-11-30에 Antigravity에서 빠지고 Flash-Lite는 모델 표에 없다. `subagent_tiers.flash_lite` 비상 폴백을 지웠다. 쿼터가 바닥나면 다른 모델로 넘기지 않고 체크포인트 후 멈춘다.
+- `long_context` 폴백은 Carbon high에서 medium으로 낮췄다. AA-Omniscience 환각률이 medium 4.2%, high 11.4%다(https://ofox.ai/blog/gemini-4-hallucination-rates/, 2차 정리 [일화 수준 근거]). 사실·증거 판정에는 폴백을 쓰지 않고 Neon 청크 처리를 유지한다.
 
 SessionStart는 동적 런타임 상태만 주입한다. rules/AGENTS.md는 호스트 rules 로더가 한 번 주입하고 SKILL.md는 /ulw 호출 시 온디맨드 로더가 읽는다. 해당 로더가 없는 호스트에서는 /ulw를 실행하는 에이전트가 skills/ulw/SKILL.md를 직접 읽어야 한다. 캐시 최소량을 채우려고 규칙이나 스킬을 추가하지 않는다. 호스트 지원과 실제 캐시 적중은 [미측정]이다.
 

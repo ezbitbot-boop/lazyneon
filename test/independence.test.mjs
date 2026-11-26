@@ -56,8 +56,20 @@ test('long context never fans out even with implementation and gates', () => {
   assert.equal(r.min_context_tokens, null);
  }
  const r = classify('250k');
- assert.equal(r.fallback, 'gemini-4-carbon-high');
+ assert.equal(r.fallback, 'gemini-4-carbon-medium');
  assert.equal(r.timeout_sec, null);
+});
+test('routing follows antigravity.google/docs/models: no Flash-Lite or removed models, 512K default context', async () => {
+ assert.equal('flash_lite' in routing.subagent_tiers, false);
+ assert.match(routing.antigravity_models_source, /^https:\/\/antigravity\.google\/docs\/models/);
+ const text = JSON.stringify({ roles: routing.roles, subagent_tiers: routing.subagent_tiers, protected_materials: routing.protected_materials });
+ assert.doesNotMatch(text, /gemini-4-argon|gemini-3\.8|flash-lite|carbon-high/i);
+ const { hostLimits } = await import('../scripts/long-output.mjs');
+ assert.equal(hostLimits().context_limit, 524288);
+ assert.equal(hostLimits({ version: 'v', evidence: { source: 'installer', version: 'v', max_context_tokens: 2000000 } }).context_limit, 1048576);
+ for (const file of ['rules/AGENTS.md', 'skills/ulw/SKILL.md', 'skills/ulw-research/SKILL.md', 'skills/refactor/SKILL.md', 'skills/visual-qa/SKILL.md']) {
+  assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /flash_lite/, file);
+ }
 });
 test('general reading remains single regardless of file count', () => {
  for (const verb of ['요약', '설명', '읽기', 'summarize', 'explain', 'read']) {

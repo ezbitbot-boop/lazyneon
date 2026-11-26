@@ -4,7 +4,7 @@ Canonical protocol: **`skills/remove-ai-slops/SKILL.md`** (`$remove-ai-slops`). 
 
 ## Antigravity Tool Surface
 
-- **Parallel cleanup / adversarial review**: flat `invoke_subagent({ TypeName: "self", Role, Model: "inherit", Prompt })` calls (batches of 3–5 files; `"flash_lite"` only for emergency quota fallback; wait for `send_message` notifications).
+- **Parallel cleanup / adversarial review**: flat `invoke_subagent({ TypeName: "self", Role, Model: "inherit", Prompt })` calls (batches of 3–5 files; no emergency model fallback, at 0% quota checkpoint and stop; wait for `send_message` notifications).
 - **Direct file operations**: `read_file`, `edit_file`, `write_file` (≤100-line / <20KB chunks, re-read via `read_file`).
 - **Search, AST & verification**: `run_command` with `rg`, `sg` (`ast-grep`), typecheckers (`tsc --noEmit`, `basedpyright`, `cargo check`, `go vet ./...`), and test runners (one approval-gated command per turn).
 

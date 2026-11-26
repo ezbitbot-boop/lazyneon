@@ -81,7 +81,7 @@ PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업
 - `executeGate(roles, roleName, run)`은 호스트 어댑터를 받는 실행 API다. 현재 제공되는 `invoke_subagent` 별칭으로 사고 수준·실행 모델을 증명할 수 없어 이 CLI에 연결하지 않았다. API는 실제 모델과 판정·근거가 있는 결과만 채택한다. 기본 high, 근거 있는 승격만 xhigh이며 지연·실패로 자동 재호출하지 않는다.
 
 - 세션 모델은 사용자가 고른 그대로 둔다(`/ulw`는 세션 도중에 모델을 바꾸지 못한다). 표의 시간 예산(`timeout_sec`)을 넘기면 추론을 멈추고 fallback 조건을 확인한다. long_context는 먼저 Neon 청크 처리를 시도하며 Carbon으로 자동 전환하지 않는다.
-- 워커 `Model`은 `flash` / `inherit` / `flash_lite`만 쓴다(명시 모델 ID는 미검증). `pro`는 Neon이 아니라 Hydrogen XHigh로 실행되므로 Neon 판단을 맡기지 않는다. `teamwork`는 미구현이다. 근거: `docs/model-routing.md`.
+- 워커 `Model`은 `flash` / `inherit`만 쓴다(명시 모델 ID는 미검증). `pro`는 Neon이 아니라 Hydrogen XHigh로 실행되므로 Neon 판단을 맡기지 않는다. 쿼터가 바닥나면 더 낮은 모델로 넘기지 않고 체크포인트 후 멈춘다(Flash-Lite는 Antigravity에 없고 3.8 Flash·Argon은 2026-11-30에 빠진다). `teamwork`는 미구현이다. 근거: `docs/model-routing.md`.
 
 ### 병렬 서브에이전트 프롬프트 규약 (평면 스키마 엄수 — `Subagents` 배열 래퍼 금지)
 
@@ -151,7 +151,7 @@ invoke_subagent({
 - Hydrogen 결과는 **주장(claim)**이다. Neon은 각 주장마다 원본 파일:줄·diff·명령 출력·해시를 직접 대조한 후에만 채택한다. 성공한 워커 호출이나 “완료/100 passed” 텍스트만으로는 완료 근거가 아니다. 근거 없는 주장은 거부하고 미해결로 남긴다. classify의 worker_verification은 pending이며 실제 검증을 대체하지 않는다.
 - Neon→Hydrogen handoff: 호스트가 Interactions API 전달을 지원하면 Neon 응답의 previous_interaction_id를 worker 요청(model: gemini-4-hydrogen)에 전달한다. ID를 지어내지 않는다. invoke_subagent 평면 스키마에 미지원 키를 넣지 말고, 지원하지 않는 호스트는 범위·원본 참조·검증 조건을 명시한 텍스트 인계로 fallback한다. 이전 대화도 검증 증거를 대신하지 않는다.
 - Office/ODF 직접 입력: docx/xlsx/pptx/odt/ods/odp는 호스트가 지원하면 Neon에 원본을 변환 없이 전달한다. 미지원이면 변환을 fallback으로 사용하고 원본·변환본 대응 및 손실을 확인한다. 보안·개인정보 게이트는 그대로 수행한다.
-- long_context는 Neon high가 기본이다. 입력+출력 통합 1,048,576-token 한도에서 정적 접두부·대화·도구 결과·예정 출력 공간을 먼저 예약한다. 초과 입력은 출처/오프셋을 보존해 청크 처리하고 Neon에서 합성한다. Carbon은 Neon 청크 처리가 불가능하거나 실패한 뒤의 최후 수단이다. Carbon 가격은 2026-12-01부터 2배이며 작업별 비용은 [미측정]이다.
+- long_context는 Neon high가 기본이다. Antigravity 안의 Neon 컨텍스트는 최대 512K(524,288) 토큰이다(https://antigravity.google/docs/models; 1,048,576은 API 직접 호출 기준). 이 한도에서 정적 접두부·대화·도구 결과·예정 출력 공간을 먼저 예약한다. 초과 입력은 출처/오프셋을 보존해 청크 처리하고 Neon에서 합성한다. Carbon medium은 Neon 청크 처리가 불가능하거나 실패한 뒤의 최후 수단이며(high는 환각률이 더 높다), 사실·증거 판정에는 쓰지 않는다. Carbon 가격은 2026-12-01부터 2배이며 작업별 비용은 [미측정]이다.
 - 호스트 어댑터 전용(미연결): `executeGate(roles, roleName, run, options)`의 continue/parseCompleted 어댑터와 `scripts/long-output.mjs`는 import API이며 독립 CLI가 아니다. 호스트 어댑터가 없는 세션에서는 자동 실행을 주장하지 말고 아래 수동 인계·영수증 CLI를 호출한다. CONTINUATION은 종료가 아니며 continuation_token을 한 번씩 소비하고 STOP을 확인한다. options.policy에 PreInvocation과 같은 입력을 전달해 호출 전 quota/replan을 검사하고, context_usage(input/thinking/tools/output_reserve)와 host를 전달해 여유를 계산한다. options.handoff/cwd는 파일 해시·revision을 검사하고 supports_previous_interaction_id일 때만 ID를 어댑터에 전달한다. options.worker_report/receipts/cwd가 있으면 수락 검사를 통과해야 게이트를 호출한다. 긴 보고서는 long-decode continuation을 사용한다: 출력 한도나 호스트 중단 시 마지막 완료 섹션·출처·다음 섹션을 고정하고 이어서 생성한다. 지원 호스트에서는 이전 interaction을 연결한다. 각 이어쓰기에도 통합 한도와 출력 공간을 다시 계산하고 중복·누락을 검증한다. 무제한 출력으로 해석하지 않는다.
 - usage는 파일 형식·미디어 분량·대량 건수로 보정한 size × recommended_level 기반 light/medium/heavy 추정 [미측정]이다. heavy는 비용 경고만 하고 절대 작업을 차단하지 않는다. 실청구량·남은 쿼터를 뜻하지 않는다.
 

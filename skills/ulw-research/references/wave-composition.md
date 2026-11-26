@@ -10,7 +10,7 @@ This skill is authored against the Antigravity `invoke_subagent` tool surface. Y
 | Send a lead / a debate round onward | next-wave `Prompt` | subagents cannot receive follow-up messages mid-run — fold the lead into the next wave's prompt text |
 | Collect member replies | returned results | results arrive on completion; act on each as it lands |
 | Track shared research state | `$SESSION_DIR` files | `expansion-log.md`, `claim-graph.md`, `sources-ledger.md` are the shared board — workers report in reply text, you journal |
-| Spawn a bounded recon / expansion / verification lane | `invoke_subagent` entry | `Role` names the territory, `Model: roleModel` for collection lanes including `browser` (`flash` = Hydrogen collection; judgment stays in the Neon session because `pro` runs Hydrogen XHigh; `"flash_lite"` only for 0% primary quota emergency fallback), `Prompt` carries the full brief |
+| Spawn a bounded recon / expansion / verification lane | `invoke_subagent` entry | `Role` names the territory, `Model: roleModel` for collection lanes including `browser` (`flash` = Hydrogen collection; judgment stays in the Neon session because `pro` runs Hydrogen XHigh; no emergency model fallback: at 0% primary quota, checkpoint and stop), `Prompt` carries the full brief |
 | End a lane | — | subagents terminate when their prompt is complete; no explicit teardown tool exists |
 | Disband the wave at the end | — | no team object persists; "done" = every spawned subagent accounted for before the final answer |
 
