@@ -22,16 +22,16 @@ test('provenance helper reports plugin version commit dirty and unknown archive'
  fs.writeFileSync(path.join(dir,'plugin.json'),'{"version":"archive"}');
  assert.deepEqual(pluginProvenance(dir),{version:'archive',commit:null,dirty:null});
 });
-test('provenance covers core evidence reports and research artifacts',t=>{
+test('provenance covers core evidence reports and research artifacts',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'la-reports-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'report'),'evidence');
  const h=makeHandoff({scope:['test'],unresolved:[],artifacts:['report']},dir);
  const manifest=initManifest({sessionDir:'20261120-120000',promised:[],lane:null});
  const results={graph:buildCodeGraph(dir),diagnostics:runDiagnosticsCheck({root:dir}),snapshot:runSnapshot({root:dir}),verify:runVerify({root:dir}),rename:runRenamePreview({root:dir,from:'old',to:'new'}),handoff:h,handoffVerify:verifyHandoff(h,dir),worker:acceptWorker({scope:['test'],unresolved:[],receipts:[],defects:[],artifact:'report',status:'complete'},{cwd:dir}),audit:auditReceipts(),auditError:auditReceipts(path.join(dir,'missing')),poll:pollReceipts(undefined,{remote:false}),manifest};
- for(const [name,result] of Object.entries(results))t.test(name,()=>check(result.plugin));
- t.test('briefing',()=>assert.ok(buildBriefing(manifest,'',new Date()).includes(commit)));
- t.test('report artifact writer',()=>{const file=path.join(dir,'evidence.json');writeJsonAtomic(file,{evidence:'abc'});check(JSON.parse(fs.readFileSync(file)).plugin);});
- t.test('report CLI output',()=>{let text='';emit({json:{evidence:'abc'}},{stdout:{write:s=>text+=s},stderr:{write(){}}});check(JSON.parse(text).plugin);});
+ for(const [name,result] of Object.entries(results))await t.test(name,()=>check(result.plugin));
+ await t.test('briefing',()=>assert.ok(buildBriefing(manifest,'',new Date()).includes(commit)));
+ await t.test('report artifact writer',()=>{const file=path.join(dir,'evidence.json');writeJsonAtomic(file,{evidence:'abc'});check(JSON.parse(fs.readFileSync(file)).plugin);});
+ await t.test('report CLI output',()=>{let text='';emit({json:{evidence:'abc'}},{stdout:{write:s=>text+=s},stderr:{write(){}}});check(JSON.parse(text).plugin);});
 });
 test('doctor JSON and text contain plugin provenance offline',()=>{
  for(const args of [['--json'],[]]){
@@ -40,11 +40,11 @@ test('doctor JSON and text contain plugin provenance offline',()=>{
  }
 });
 
-test('statistics artifact and stop evidence log identify producer',t=>{
+test('statistics artifact and stop evidence log identify producer',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'la-log-provenance-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const run=(name,args=[],payload={})=>spawnSync(process.execPath,[path.join(root,'scripts',name),...args],{cwd:dir,encoding:'utf8',input:JSON.stringify(payload),env:{...process.env,LAZYNEON_OFFLINE:'1',LAZYNEON_SELF_CHECK:'off',LAZYNEON_STOP_GUARD:'observe'}});
- t.test('statistics',()=>{const out=path.join(dir,'stats.json');const r=run('selfcheck_stats.mjs',['--brain',dir,'--out',out]);assert.equal(r.status,0,r.stderr);check(JSON.parse(fs.readFileSync(out)).plugin);assert.ok(r.stdout.includes(commit));});
- t.test('stop log',()=>{const r=run('stop_claim_guard.mjs',[],{cwd:dir,last_assistant_message:'구현 완료. 모든 테스트 통과했습니다.'});assert.equal(r.status,0,r.stderr);const entries=fs.readFileSync(path.join(dir,'.lazyneon/stop-guard.jsonl'),'utf8').trim().split('\n').map(JSON.parse);for(const e of entries)check(e.plugin);});
+ await t.test('statistics',()=>{const out=path.join(dir,'stats.json');const r=run('selfcheck_stats.mjs',['--brain',dir,'--out',out]);assert.equal(r.status,0,r.stderr);check(JSON.parse(fs.readFileSync(out)).plugin);assert.ok(r.stdout.includes(commit));});
+ await t.test('stop log',()=>{const r=run('stop_claim_guard.mjs',[],{cwd:dir,last_assistant_message:'구현 완료. 모든 테스트 통과했습니다.'});assert.equal(r.status,0,r.stderr);const entries=fs.readFileSync(path.join(dir,'.lazyneon/stop-guard.jsonl'),'utf8').trim().split('\n').map(JSON.parse);for(const e of entries)check(e.plugin);});
 });
 
 test('post-tool feedback evidence identifies producer',t=>{
