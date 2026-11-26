@@ -32,10 +32,16 @@ LOCKUP = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 256"><title
 failures = []
 
 
+# Which renderer drew each PNG ("... .png ... via chrome"), why one was passed over ("note:"), and how each Chrome
+# run went ("debug:", from RENDER_PNG_DEBUG=1). PNG cost and correctness depend on the renderer, so the log shows it.
+RENDER_LINE = re.compile(r"\.png\b.*\bvia \w|^\s*(note|debug): ")
+
+
 def run(name, args, expect=(), cwd=None):
     """Run a script; fail on non-zero exit, a traceback, or missing expected text/files."""
     env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["RENDER_PNG_DEBUG"] = "1"
     started = time.monotonic()
     p = subprocess.run([sys.executable] + args, cwd=cwd or SKILL, env=env, capture_output=True)
     elapsed = time.monotonic() - started
@@ -57,6 +63,10 @@ def run(name, args, expect=(), cwd=None):
         failures.append(name)
         print("       " + "; ".join(problems))
         print("       " + out.strip().replace("\n", "\n       ")[-2500:])
+    else:
+        for line in out.splitlines():
+            if RENDER_LINE.search(line):
+                print("       " + line.strip())
     return out
 
 
