@@ -55,7 +55,8 @@ On Windows, `python3` is often the Microsoft Store stub; use `python` (or `py -3
 **Look at your work.** Drawing in SVG code is drawing blind. After writing or changing a logo, render it and look:
 `python3 scripts/render_png.py concept-a.svg concept-b.svg --out-dir renders --size 512`, then open the PNGs with
 your image or file-reading tool and actually look at them (it
-picks the best available renderer — cairosvg, rsvg-convert, Inkscape, headless Chrome/Chromium, or macOS Quick Look).
+picks the best available renderer — cairosvg, rsvg-convert, Inkscape, headless Chrome/Chromium, or macOS Quick Look
+when Pillow is installed; without Pillow Quick Look would give opaque white, so it is not used).
 Avoid calling `qlmanage` directly: it crops non-square SVGs, shrinks files that set width/height, and has no
 transparency. The HTML sheets can also be opened in a browser tool. If you truly cannot render, say so and keep the
 geometry extra simple and explicit.

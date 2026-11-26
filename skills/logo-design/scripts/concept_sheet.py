@@ -3,7 +3,7 @@
 
 Each concept gets a card: the artwork large, the same mark at 64 / 32 / 16 px (so scale is judged honestly),
 a letter + name, and a one-line idea. Optionally a secondary file per concept (e.g. the lockup) under the symbol.
-The PNG is rendered with render_png.py's backends (cairosvg, rsvg-convert, Inkscape, Chrome, Quick Look);
+The PNG is rendered with render_png.py's backends (cairosvg, rsvg-convert, Inkscape, Chrome, Quick Look with Pillow);
 the SVG is always written.
 
 Usage:
