@@ -364,7 +364,7 @@ test('offline and no-update-check skip every git call; default only fetches refs
  try {
   const {work,clone}=setupRepo(tmp);pushNewCommit(work,'refs-only');
   const trace=path.join(tmp,'trace');
-  const run=env=>spawnSync(process.execPath,['--input-type=module','-e',`import {autoUpdate} from ${JSON.stringify(new URL('../scripts/session_start.mjs',import.meta.url).href)}; console.log(autoUpdate(${JSON.stringify(clone)},process.env) ?? '');`],{encoding:'utf8',env:{...process.env,LAZYNEON_OFFLINE:'0',LAZYNEON_NO_AUTO_UPDATE:'0',LAZYNEON_AUTO_UPDATE:'0',GIT_TRACE:trace,...env}});
+  const run=env=>spawnSync(process.execPath,['--input-type=module','-e',`import {autoUpdate} from ${JSON.stringify(new URL('../scripts/session_start.mjs',import.meta.url).href)}; console.log(autoUpdate(${JSON.stringify(clone)},process.env) ?? '');`],{encoding:'utf8',env:{...process.env,LAZYNEON_OFFLINE:'0',LAZYNEON_NO_AUTO_UPDATE:'0',LAZYNEON_NO_UPDATE_CHECK:'0',LAZYNEON_AUTO_UPDATE:'0',GIT_TRACE:trace,...env}});
   for(const env of [{LAZYNEON_OFFLINE:'1',LAZYNEON_AUTO_UPDATE:'1'},{LAZYNEON_NO_UPDATE_CHECK:'1',LAZYNEON_AUTO_UPDATE:'1'}]){
    assert.equal(run(env).status,0);assert.equal(fs.existsSync(trace),false);
   }
