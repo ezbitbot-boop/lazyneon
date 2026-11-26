@@ -6,8 +6,8 @@
 	"common_rule_source": "false-claims-1115: 5,251 claims, repeats were invented run commands (3), comments trusted over code (2), unexecuted numbers (3)",
 	"how_to_revise": "Edit this file only. /ulw reads it at the start of a task; no code or rules change needed. Record the evidence in docs/model-routing.md.",
 	"subagent_tiers": {
-		"pro": "gemini-4-neon",
 		"flash": "gemini-4-hydrogen",
+		"pro": "gemini-4-hydrogen",
 		"inherit": "session model",
 		"flash_lite": "emergency quota fallback"
 	},
@@ -509,7 +509,7 @@
 	},
 	"source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon",
 	"model_id_note": "공식 ID gemini-4-neon (2026-11-19 확인). low/medium/high/xhigh 접미사는 저장소 라우팅 표기; 호스트 tier 매핑 미검증.",
-	"subagent_tiers_note": "[미측정] Google launch post: Neon orchestrator with parallel Hydrogen workers; host tier mapping is unverified.",
+	"subagent_tiers_note": "[관측] The `pro` label says Neon, but the host runs `pro` subagents as Hydrogen XHigh (gemini-4-hydrogen-tiered-xhigh; 33/33 runs) and `inherit` verification subagents after an Orchestrator plan inherit Hydrogen: https://github.com/google-antigravity/antigravity-cli/issues/1824, https://github.com/google-antigravity/antigravity-cli/issues/1710 (user reports, no Google confirmation). No tier reaches Neon, so a Neon-only gate in a non-Neon session refuses and asks the user to switch the model picker to Gemini 4 Neon instead of delegating. `flash` is listed first so Hydrogen fan-out keeps using it.",
 	"reasoning_policy": {
 		"max_replans": 2,
 		"promotion_reasons": [
@@ -523,7 +523,7 @@
 		"never": [
 			"gemini-4-hydrogen"
 		],
-		"parallel_workers": "gemini-4-neon-high",
+		"delegation": "forbidden",
 		"inputs": [
 			"kind",
 			"materials[].kind",
@@ -531,6 +531,7 @@
 			"evidence_roots",
 			"prompt"
 		],
-		"rule": "PII, sensitive, security_audit, forensic_verdict and any evidence/PII material exclude all Hydrogen tiers across the entire task, including compound execution steps."
+		"rule": "PII, sensitive, security_audit, forensic_verdict and any evidence/PII material exclude all Hydrogen tiers across the entire task, including compound execution steps. Delegation is forbidden: no invoke_subagent (any Model, pro runs Hydrogen XHigh) and no Orchestrator session (it hands execution to Hydrogen); every step runs in a direct Gemini 4 Neon session, otherwise the classifier refuses.",
+		"delegation_rule": "민감 작업(개인정보·보안 감사·포렌식 판정·증거): 서브에이전트(invoke_subagent)나 Orchestrator로 넘기지 않는다. `pro`도 실제로는 Hydrogen XHigh로 실행된다(antigravity-cli #1824, #1710). 모든 단계를 지금의 Gemini 4 Neon 단독 세션에서 직접 처리하고, 세션이 Neon이 아니거나 Orchestrator면 멈추고 모델 선택기에서 Gemini 4 Neon을 고르라고 안내한다."
 	}
 }

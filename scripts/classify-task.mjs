@@ -158,6 +158,9 @@ export const GATE_ROLES = Object.freeze(["plan", "final_review", "security_audit
 export function isGate(roles, roleName) {
 	return GATE_ROLES.includes(roleName) || Boolean(roles[roleName]?.never?.length);
 }
+// No subagent tier reaches Neon on this host (`pro` runs Hydrogen XHigh, antigravity-cli #1824/#1710), so a Neon-only
+// step in a non-Neon session can only be fixed by the user switching the session model.
+export const SWITCH_TO_NEON = "switch the model picker to Gemini 4 Neon (모델 선택기에서 Gemini 4 Neon 선택, Orchestrator 아님)";
 export function getAction(model, roles, roleName, mode, subagentTiers = {}, sessionModel = null) {
  const actual = sessionModel ?? "unknown";
  const required = roles[roleName]?.model ?? model;
@@ -173,7 +176,16 @@ export function getAction(model, roles, roleName, mode, subagentTiers = {}, sess
  }
  const neon = modelFamily(required) === 'gemini-4-neon' ? required : roles.default.model;
  const available = Object.values(subagentTiers).includes(modelFamily(neon));
- return (available ? `delegate: invoke_subagent ${neon}` : `refuse: needs ${neon}`) + suffix;
+ return (available ? `delegate: invoke_subagent ${neon}` : `refuse: needs ${neon}; ${SWITCH_TO_NEON}`) + suffix;
+}
+
+/** Protected work never leaves the session: no subagent fan-out, no `pro` delegation, no Orchestrator. */
+export function sensitiveAction(roles, roleName, sessionModel = null) {
+ const suffix = usesV2(roles, roleName) ? ", apply v2 flag/fail rule" : "";
+ const actual = sessionModel ?? "unknown";
+ if (actual !== "unknown" && (modelFamily(actual) !== "gemini-4-neon" || /orchestrator/i.test(actual)))
+  return `refuse: sensitive task needs a direct Gemini 4 Neon session (no subagents, no Orchestrator); ${SWITCH_TO_NEON}${suffix}`;
+ return `proceed in session${suffix}`;
 }
 
 /** Execute a gate through a host-supplied runner. No automatic duplicate calls.
@@ -303,7 +315,7 @@ export function classifyTask(prompt, hostPayload = {}) {
  const reading=kind==='general'&&/요약|설명|읽기|summari[sz]e|explain|\bread\b/i.test(prompt);
  const docTypo=/오타|typo/i.test(prompt)&&/\.md\b/i.test(prompt)&&!/[4-9]\s*개|\d{2,}\s*(?:개|files)/i.test(prompt)&&([...prompt.matchAll(/\.md\b/gi)].length<=3);
  const size=longContext||reading||docTypo?'single':classifySize(prompt,modes);
-	const mode = size === "subagents" ? "subagents" : "single";
+	const mode = size === "subagents" && !hydrogenExcluded ? "subagents" : "single";
 
 	const kindDef = task_kinds[kind];
 	const roleName = longContext && !isGate(roles, kindDef?.role) ? "long_context" : kindDef ? kindDef.role : "default";
@@ -313,15 +325,18 @@ export function classifyTask(prompt, hostPayload = {}) {
 	const vpath = verifiedPath(model);
  const resolvedModel = resolveSessionModel(hostPayload);
 	const sessionModel = resolvedModel === "unknown" ? null : resolvedModel;
-	let action = getAction(model, roles, roleName, mode, routing.subagent_tiers, sessionModel);
+ // Protected materials: every step stays in this session (sensitiveAction); otherwise the routing table decides.
+ const act = (m, role, stepMode) => hydrogenExcluded ? sensitiveAction(roles, role, sessionModel) : getAction(m, roles, role, stepMode, routing.subagent_tiers, sessionModel);
+	let action = act(model, roleName, mode);
 	const gateRoles = [...new Set(Object.keys(task_kinds).filter(k => scores[k] > 0 && isGate(roles, task_kinds[k].role)).map(k => task_kinds[k].role))];
-	const gateSteps = gateRoles.map(role => ({ role, model: roles[role].model, action: getAction(roles[role].model, roles, role, "single", routing.subagent_tiers, sessionModel) }));
-	const notice = [...new Set([model, ...gateSteps.map(s => s.model)].map(m => sessionNotice(m === model ? `gemini-4-neon-${roleData.recommended_level}` : m, roles, sessionModel)).filter(Boolean))].join("; ") || null;
+	const gateSteps = gateRoles.map(role => ({ role, model: roles[role].model, action: act(roles[role].model, role, "single") }));
+	const unverifiedSensitive = hydrogenExcluded && !sessionModel ? "[미확인] 세션 모델 미보고: 민감 작업은 Orchestrator가 아닌 Gemini 4 Neon 단독 세션에서만 한다" : null;
+	const notice = [...new Set([model, ...gateSteps.map(s => s.model)].map(m => sessionNotice(m === model ? `gemini-4-neon-${roleData.recommended_level}` : m, roles, sessionModel)).concat(unverifiedSensitive).filter(Boolean))].join("; ") || null;
 	const workerModel = mode === "subagents" ? (isGate(roles, roleName) ? model : roles.parallel_workers.model) : null;
 	const executionRoles = [...new Set(Object.keys(task_kinds).filter(k => scores[k] > 0 && ["implementation", "long_execution", "script_first", "mechanical"].includes(task_kinds[k].role)).map(k => task_kinds[k].role))];
 	const steps = gateSteps.length ? [
 		...gateSteps.filter(step => step.role === "plan"),
-		...executionRoles.map(role => ({ role, model: longContext ? roles.long_context.model : mode === "subagents" ? roles.parallel_workers.model : roles[role].model, action: getAction(longContext ? roles.long_context.model : roles[role].model, roles, longContext ? "long_context" : role, mode, routing.subagent_tiers, sessionModel) })),
+		...executionRoles.map(role => ({ role, model: longContext ? roles.long_context.model : mode === "subagents" ? roles.parallel_workers.model : roles[role].model, action: act(longContext ? roles.long_context.model : roles[role].model, longContext ? "long_context" : role, mode) })),
 		...gateSteps.filter(step => step.role !== "plan"),
 	] : [{ role: roleName, model: workerModel ?? model, action }];
  // Hydrogen reports are claims: insert a Neon evidence check before any adoption/final gate.
@@ -329,12 +344,12 @@ export function classifyTask(prompt, hostPayload = {}) {
   if (modelFamily(steps[i].model) !== 'gemini-4-hydrogen') continue;
   steps.splice(i + 1, 0, { role: 'worker_verification', model: roles.final_review.model,
    status: 'pending', evidence_required: true,
-   action: getAction(roles.final_review.model, roles, 'final_review', 'single', routing.subagent_tiers, sessionModel) + '; Neon must check each worker claim against original files, diffs and execution receipts before adoption; reject unsupported claims; run scripts/worker-contract.mjs report.json parent-receipts.json; adopt only independently reproduced defects' });
+   action: act(roles.final_review.model, 'final_review', 'single') + '; Neon must check each worker claim against original files, diffs and execution receipts before adoption; reject unsupported claims; run scripts/worker-contract.mjs report.json parent-receipts.json; adopt only independently reproduced defects' });
  }
  const documentInput = /\.(docx|xlsx|pptx|odt|ods|odp)\b/i.test(prompt)
   ? { model: 'gemini-4-neon-high', mode: 'direct_if_supported', fallback: 'conversion', evidence: ['sheet/cell','paragraph/slide','source_path'], exact_values: 'parser_cross_check' } : null;
  if (documentInput) steps.unshift({ role: 'document_input', model: documentInput.model,
-  action: getAction(documentInput.model, roles, 'default', 'single', routing.subagent_tiers, sessionModel)
+  action: act(documentInput.model, 'default', 'single')
    + '; use original Office/ODF input directly when host supports it; conversion only as fallback' });
  // Classification schedules work; pending is never a passed review.
 	const gateResults = [];
@@ -345,7 +360,7 @@ export function classifyTask(prompt, hostPayload = {}) {
   } else if (step.action.startsWith('delegate')) {
    gateResults.push({role:step.role, status:'pending', execution:'delegation_required', model:step.model, evidence_required:true, attempts:[]});
   } else {
-   gateResults.push({role:step.role, status:'refused', reason:'host_adapter_required', attempts:[]});
+   gateResults.push({role:step.role, status:'refused', reason:hydrogenExcluded ? 'sensitive_requires_neon_session' : step.action.includes(SWITCH_TO_NEON) ? 'neon_session_required' : 'host_adapter_required', attempts:[]});
   }
 	}
 	const refused = steps.find(step => (isGate(roles, step.role) || step.role === 'worker_verification') && step.action.startsWith('refuse:'));
@@ -361,7 +376,7 @@ export function classifyTask(prompt, hostPayload = {}) {
 		.sort((a, b) => scores[b] - scores[a])
 		.map((k) => roles[task_kinds[k].role]?.rule)
 		.filter(Boolean);
-	const rules = [...new Set([...matchedRules, routing.common_rule].filter(Boolean))];
+	const rules = [...new Set([...matchedRules, hydrogenExcluded ? routing.protected_materials?.delegation_rule : null, routing.common_rule].filter(Boolean))];
  const reasoning_language = hydrogenExcluded ? 'ko' : reasoningLanguage(prompt, kind, Object.keys(task_kinds).filter(k => scores[k] > 0));
  if (reasoning_language === 'en') rules.push(ENGLISH_GUIDANCE);
 	const sttModel = Object.keys(task_kinds)
@@ -372,6 +387,7 @@ export function classifyTask(prompt, hostPayload = {}) {
 	return {
                 reasoning_language,
                 hydrogen_excluded: hydrogenExcluded,
+                delegation: hydrogenExcluded ? "forbidden" : "allowed",
                 recommended_level: roleData.recommended_level,
                 usage: estimateUsage(longContext ? "long_context" : size, roleData.recommended_level, prompt),
                 document_input: documentInput,
@@ -386,7 +402,7 @@ export function classifyTask(prompt, hostPayload = {}) {
 				routing_note: roleData.note,
 				routing_status: routing.status,
 				worker_model: workerModel,
-				gate_execution: gateResults.length ? (refused ? "host_adapter_required" : gateResults.some(g => g.execution === "delegation_required") ? "delegation_required" : "in_session") : null,
+				gate_execution: gateResults.length ? (refused ? (refused.action.includes(SWITCH_TO_NEON) ? "neon_session_required" : "host_adapter_required") : gateResults.some(g => g.execution === "delegation_required") ? "delegation_required" : "in_session") : null,
 				steps,
 				fallback: roleData.fallback ?? null,
 				timeout_sec: roleData.timeout_sec ?? null,

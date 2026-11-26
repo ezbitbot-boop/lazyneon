@@ -21,7 +21,8 @@ SessionStart의 `플러그인 경로:` 절대경로를 아래 `<플러그인 경
 
 검증 실패·인터페이스 변경·상충 근거가 있으면 아래 승격 전달 절차로 `promotion.json`을 만들고 같은 명령에 `< promotion.json`을 붙여 재분류한다.
 
-- `action`: 게이트 작업은 충분한 Neon 티어에서 `proceed in session`이다. 기본은 Neon high이며 근거 있는 승격 시에만 `xhigh 권장, high로 진행`, 미보고 수준은 `[미확인]` 안내 후 진행한다. 비-Neon 세션은 Neon으로 위임하며 위임 불가 시만 거부한다. 비게이트 작업은 세션 및 워커 조건에 따라 진행·위임·거절한다. [미측정] Google 출시 글에 따라 병렬 실행 워커는 `flash`(Hydrogen), 게이트는 `pro`(Neon)를 제안한다. 호스트 매핑을 먼저 확인한다. sensitive 작업에는 `apply v2 flag/fail rule`이 붙는다.
+- `action`: 게이트 작업은 충분한 Neon 티어에서 `proceed in session`이다. 기본은 Neon high이며 근거 있는 승격 시에만 `xhigh 권장, high로 진행`, 미보고 수준은 `[미확인]` 안내 후 진행한다. 비-Neon 세션의 Neon 전용 작업은 위임하지 않고 거부한다(`refuse: … switch the model picker to Gemini 4 Neon`): `pro` 서브에이전트는 이름과 달리 Hydrogen XHigh로 실행되어(antigravity-cli #1824, #1710) Neon에 닿는 서브에이전트 티어가 없다. 사용자에게 모델 선택기에서 Gemini 4 Neon을 고르라고 안내하고 멈춘다. 비게이트 작업은 세션 및 워커 조건에 따라 진행·위임(`flash` = Hydrogen 실행 워커)·거절한다. sensitive 작업에는 `apply v2 flag/fail rule`이 붙는다.
+- `delegation: "forbidden"`: 개인정보·민감정보·보안 감사·포렌식 판정·증거 작업이다. 서브에이전트(`invoke_subagent`, 어떤 `Model`이든)와 Orchestrator 세션으로 넘기지 않고, 모든 단계를 지금의 Gemini 4 Neon 단독 세션에서 직접 처리한다. 세션이 Neon이 아니거나 Orchestrator면 분류기가 거부한다.
 - `verified_path`: Neon은 `unverified-neon`으로 표시한다. 과거 Argon pro 경로의 검증은 Neon에 승계하지 않는다. 다른 중첩 호출은 `unverified-nested`이다.
 - `routing_note` / `routing_status`: 미측정·출처 안내를 보고에 포함한다. `worker_model`은 병렬 실행/게이트 역할에 따른 제안 모델이다.
 - `session_notice`: `null`이 아니면 한 줄 출력한다. action이 delegate 또는 refuse면 action이 우선하며, notice는 진행 허가가 아니다. `/ulw`는 세션 도중 모델을 바꿀 수 없다.
@@ -58,7 +59,7 @@ plan, final_review, security_audit, forensic_verdict, pii_inject_docfmt, verdict
 
 `executeGate(roles, roleName, run, {materials})`는 runner 호출 전에 같은 검사를 수행해 `input.materials`에 결과를 전달한다. 세션 내부 게이트도 이 절차를 적용한다. 후속 도구 결과를 받았다면 다시 검사한다. Workspace는 코어를 import하지 않고 이 코어 절차를 따른다.
 
-PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업은 모든 실행 단계와 병렬 워커에서 Hydrogen 전 티어를 제외하고 Neon을 사용한다. 분류 입력에 `materials[].kind`, `materials[].path`, `evidence_roots`를 전달한다. 키워드가 없더라도 증거 루트 아래 자료는 보호 대상이다.
+PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업은 모든 실행 단계에서 Hydrogen 전 티어를 제외하고 Neon을 사용하며, 병렬 워커·서브에이전트·Orchestrator로 위임하지 않는다(`delegation: "forbidden"`). 분류 입력에 `materials[].kind`, `materials[].path`, `evidence_roots`를 전달한다. 키워드가 없더라도 증거 루트 아래 자료는 보호 대상이다.
 
 검색·문서 조사·장문 입력 또는 워커/판정 프롬프트 작성 시 `references/prompt-design.md`의 해당 절을 읽는다.
 
@@ -69,18 +70,18 @@ PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업
 | 작업 형태 | 실행 경로 | 모델 및 규칙 |
 |---|---|---|
 | **Tier 0 — 단일~2개 파일 / 순차·직렬 락 작업** | 메인 에이전트 직접 수행 (`subagent = 0`, `≤200줄` 원샷 편집 + 즉시 검증) | 서브에이전트 기동 고정비(`14K~18.4K` 토큰) 금지 |
-| **Tier 1 — 3~8개 배타 파일 / 샤드 조사** | 레인별 평면 `invoke_subagent` 병렬 호출 (워커당 1호출, 레인 수 ≤ 예산) | [미측정] Google 출시 글 기반 Hydrogen 실행 워커 `flash`, Neon 게이트 `pro`(매핑 미검증); 구현 워커는 **편집·재열람만 수행(`Edit-Only`)** 후 부모가 **1회 배치 검증** |
+| **Tier 1 — 3~8개 배타 파일 / 샤드 조사** | 레인별 평면 `invoke_subagent` 병렬 호출 (워커당 1호출, 레인 수 ≤ 예산) | [미측정] Google 출시 글 기반 Hydrogen 실행 워커 `flash`; 판단·게이트는 서브에이전트가 아니라 Neon 세션이 직접(`pro`는 Hydrogen XHigh로 실행됨, #1824/#1710); 구현 워커는 **편집·재열람만 수행(`Edit-Only`)** 후 부모가 **1회 배치 검증**. 민감 작업은 이 경로를 쓰지 않는다 |
 | **Tier 2 — 고위험 변경(정산·보안·인증·스키마·WCAG·법원 제출)** | 1차 구현·로컬 테스트 후 `references/dual-verify.md` Pass 3 수행 | 라우팅 표 `final_review`의 Neon high(근거 있는 경우 xhigh 승격) 읽기 전용 검증 후 워커 회수 |
-| **Tier 3 — 6개+ 모듈 신규 구축 / 특수 예외** | [미측정] Google 출시 글의 Neon Orchestrator + 병렬 Hydrogen 실행 워커 `/swarm` 패턴 | 수집·실행은 `flash`, 판단·게이트는 `pro`; 실제 호스트 매핑 확인 필수 |
+| **Tier 3 — 6개+ 모듈 신규 구축 / 특수 예외** | [미측정] Google 출시 글의 Neon Orchestrator + 병렬 Hydrogen 실행 워커 `/swarm` 패턴 | 수집·실행은 `flash`, 판단·게이트는 Neon 세션이 직접. Orchestrator는 실행 단계를 Hydrogen에 넘기므로 민감 작업에는 쓰지 않는다 |
 
 ### 기본 오케스트레이션 (역할·모드 표는 `references/model-routing.json`)
 
 - 작업을 시작할 때 `references/model-routing.json`을 읽고, 역할(계획·검토·구현·긴 실행 등)과 모드(단독·서브에이전트·swarm·boost)를 그 표대로 고른다. 표는 매일 고칠 수 있는 설정이므로 이 문서에 모델 이름을 적지 않는다. 선택 규칙: 통과율이 먼저, 같은 통과율이면 토큰·쿼터가 적은 쪽, 그다음 시간.
-- 호스트 보고 세션이 요구 Neon 티어 이상이면 `gate_results`에 `status: "pending"`, `execution: "in_session"`, 실제 세션 모델·요구 모델·`evidence_required: true`를 기록한다. 세션에서 해당 검토를 실행하고 근거를 남긴다. pending은 PASS가 아니다. Neon high와 미보고 세션도 안내 후 pending으로 진행한다. 비-Neon은 Neon 위임을 pending으로 배정하며 위임 불가 시 거부한다. `executeGate`의 실제 검증은 여전히 실행 근거를 요구한다. 분류 출력이나 `pro` 별칭을 검증 통과로 해석하지 않는다.
+- 호스트 보고 세션이 요구 Neon 티어 이상이면 `gate_results`에 `status: "pending"`, `execution: "in_session"`, 실제 세션 모델·요구 모델·`evidence_required: true`를 기록한다. 세션에서 해당 검토를 실행하고 근거를 남긴다. pending은 PASS가 아니다. Neon high와 미보고 세션도 안내 후 pending으로 진행한다. 비-Neon 세션은 `status: "refused"`, `reason: "neon_session_required"`로 거부되며 Gemini 4 Neon으로 바꾼 뒤 다시 분류한다. `executeGate`의 실제 검증은 여전히 실행 근거를 요구한다. 분류 출력이나 `pro` 별칭을 검증 통과로 해석하지 않는다.
 - `executeGate(roles, roleName, run)`은 호스트 어댑터를 받는 실행 API다. 현재 제공되는 `invoke_subagent` 별칭으로 사고 수준·실행 모델을 증명할 수 없어 이 CLI에 연결하지 않았다. API는 실제 모델과 판정·근거가 있는 결과만 채택한다. 기본 high, 근거 있는 승격만 xhigh이며 지연·실패로 자동 재호출하지 않는다.
 
 - 세션 모델은 사용자가 고른 그대로 둔다(`/ulw`는 세션 도중에 모델을 바꾸지 못한다). 표의 시간 예산(`timeout_sec`)을 넘기면 추론을 멈추고 fallback 조건을 확인한다. long_context는 먼저 Neon 청크 처리를 시도하며 Carbon으로 자동 전환하지 않는다.
-- 워커 `Model`은 `pro` / `flash` / `inherit` / `flash_lite`만 쓴다(명시 모델 ID는 미검증). `teamwork`는 미구현이다. 근거: `docs/model-routing.md`.
+- 워커 `Model`은 `flash` / `inherit` / `flash_lite`만 쓴다(명시 모델 ID는 미검증). `pro`는 Neon이 아니라 Hydrogen XHigh로 실행되므로 Neon 판단을 맡기지 않는다. `teamwork`는 미구현이다. 근거: `docs/model-routing.md`.
 
 ### 병렬 서브에이전트 프롬프트 규약 (평면 스키마 엄수 — `Subagents` 배열 래퍼 금지)
 
@@ -92,7 +93,7 @@ PII·민감정보·보안 감사·포렌식 판정과 증거가 포함된 작업
 invoke_subagent({
   TypeName: "self",
   Role: "Module A Implementation",
-  Model: "flash", // 수집/구현; 판단 레인은 routing table의 pro (Neon)
+  Model: "flash", // 수집/구현 전용; 판단·게이트는 서브에이전트가 아니라 Neon 세션이 직접 한다
   Prompt: [
     "목표: <구체적 목표>",
     "완료 조건: <담당 파일 편집·재열람 완료 기준 (통합 테스트·검산은 부모가 배치 실행)>",

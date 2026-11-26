@@ -17,10 +17,10 @@ Open your reply with the line `ULW-RESEARCH MODE ENABLED!`. If another active mo
 
 ## How this maps to Antigravity subagents
 
-- Stand up waves via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn (`flash` = Hydrogen collection; `pro` = Neon judgment; `"flash_lite"` only for 0% primary quota emergency fallback; every role is spelled out in `Prompt`).
+- Stand up waves via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn (`flash` = Hydrogen collection; judgment lanes stay in the Neon session because `pro` runs Hydrogen XHigh, antigravity-cli #1824/#1710; `"flash_lite"` only for 0% primary quota emergency fallback; every role is spelled out in `Prompt`).
 - Act as the information broker: subagents cannot see each other's replies or receive mid-run messages, so collect returned results on completion, fold leads and debate rounds into the next wave's `Prompt`, journal shared state in `$SESSION_DIR` (`expansion-log.md`, `claim-graph.md`, `sources-ledger.md`) while workers report only in reply text, and account for every spawned subagent before finishing (subagents terminate on completion).
 - Full Antigravity `invoke_subagent` tool-mapping table and broker mechanics: [references/wave-composition.md](references/wave-composition.md).
-- Model routing: `Model: roleModel` for all lanes including `browser` (`flash` = Hydrogen collection; `pro` = Neon judgment); `"flash_lite"` only as the 0% primary-quota emergency fallback.
+- Model routing: `Model: roleModel` for collection lanes including `browser` (`flash` = Hydrogen collection). Skeptic, judgment, security and final approval run in the Neon session itself, never as a `pro` subagent; `"flash_lite"` only as the 0% primary-quota emergency fallback. Research on client/case or evidence material is not delegated at all.
 
 ## Authority while active
 
@@ -62,8 +62,8 @@ Saturation is a knowledge-production protocol, not just more searching: the sess
 ## Phase 1 — Stand up the team (DEFAULT composition)
 
 - For MASS research ("mass ulw research", "mulw research", "ulw mass research" in any language), scale waves rather than roster: chain `Model: roleModel` `invoke_subagent` waves at the runtime's parallel ceiling from EXPAND leads until convergence, run a dedicated `Model: roleModel` attack wave in Phase 3, and reduce synthesis through parallel `Model: roleModel` lanes into one final `Model: roleModel` reducer under all standard gates.
-- Otherwise launch a parallel wave as the DEFAULT immediately after `brief.md` via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn for axis owners and skeptic (`flash` = Hydrogen collection; `pro` = Neon judgment; `"flash_lite"` emergency fallback only), within the `brief.md` budget.
-- Binding rules: one member per axis (ownership, never job title), runtime-maximum roster, role-based `Model: roleModel` routing (`"flash_lite"` fallback only), literal user routing words, at least one Neon `pro` skeptic, mandatory `## EXPAND` reply tails, and shared state in `$SESSION_DIR` files.
+- Otherwise launch a parallel wave as the DEFAULT immediately after `brief.md` via parallel flat `invoke_subagent({ TypeName: "self", Role, Model: roleModel, Prompt })` calls in the same turn for axis owners and skeptic evidence-gathering (`flash` = Hydrogen collection; `"flash_lite"` emergency fallback only), within the `brief.md` budget. Skeptic verdicts and judgment stay in the Neon session (`pro` runs Hydrogen XHigh).
+- Binding rules: one member per axis (ownership, never job title), runtime-maximum roster, role-based `Model: roleModel` routing (`"flash_lite"` fallback only), literal user routing words, at least one skeptic lane whose attack the Neon session judges itself, mandatory `## EXPAND` reply tails, and shared state in `$SESSION_DIR` files.
 - Full MASS research procedure, worked `invoke_subagent` launch template, roster rules, wave lifecycle table, and member brief contract: [references/wave-composition.md](references/wave-composition.md).
 
 ## Phase 2 — Saturation wave
@@ -136,7 +136,7 @@ English-first retrieval, varied operators (`site:`, `filetype:`, `intitle:`, `"e
 
 The full failure-mode table lives in [references/failure-modes.md](references/failure-modes.md). The ones that most often end a run: standing up the wave before the Phase 0 brief exists; stopping after wave 1 (convergence rules only); a supported claim with no skeptic pass; a gate recorded `pass` that never executed; and a final answer while any lane result is still unaccounted for.
 
-`roleModel` is resolved from `skills/ulw/references/model-routing.json`: collection/aggregation uses Hydrogen `flash`; skeptic, judgment, security and final approval use Neon `pro` at the required thinking tier. This also applies to browser lanes (including `browser`); inherit is allowed only after verifying the required family and tier. Host mapping is [미확인].
+`roleModel` is resolved from `skills/ulw/references/model-routing.json`: collection/aggregation uses Hydrogen `flash`. Skeptic, judgment, security and final approval need Neon at the required thinking tier, and no subagent tier reaches Neon (`pro` is observed as Hydrogen XHigh: antigravity-cli #1824, #1710), so the Neon session does them itself instead of delegating. This also applies to browser lanes (including `browser`); inherit is allowed only after verifying the required family and tier.
 
 ## Ordinary public access methods
 

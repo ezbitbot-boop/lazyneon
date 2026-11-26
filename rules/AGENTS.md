@@ -38,7 +38,7 @@ Delegate for 3+ independent modules/files/verification lanes, broad research (`$
 
 **Routing invariants**: model-routing.json is authoritative. [미측정] Google launch post motivates Neon orchestration and Hydrogen execution workers; Neon performance and tier mapping are unverified. Hydrogen high never judges gates. Argon/Carbon evidence is history only.
 
-**Subagent mechanism:** [미측정] `pro` for Neon orchestrator/gates, `flash` for parallel Hydrogen execution workers; `inherit` preserves the host model, `flash_lite` is emergency only. Verify host mapping before use; do not claim these paths are measured.
+**Subagent mechanism:** `flash` runs parallel Hydrogen execution workers. `pro` is labelled Neon but the host runs it as Hydrogen XHigh (antigravity-cli #1824, #1710), so no subagent tier reaches Neon: Neon gates run in the Neon session itself, and a non-Neon session refuses them. Sensitive work (PII, security audit, forensic verdict, evidence) is never delegated to subagents or an Orchestrator session. `inherit` preserves the host model, `flash_lite` is emergency only.
 
 **Worker prompt contract** (every `Prompt`):
 

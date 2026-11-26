@@ -114,11 +114,13 @@ test('R5 inline failed lookup is relayed without waiting for transcript',t=>{
  const dir=fixture(t);
  assert.match(JSON.stringify(dispatch({cwd:dir,conversationId:'inline',toolCall:{name:'grep_search',args:{query:'missing'}},tool_response:{content:'No results found'}},dir)),/LOOKUP GUARD/);
 });
-test('R2b Argon/Carbon sessions delegate to Neon when a Neon tier exists, refuse otherwise', () => {
+test('R2b Argon/Carbon sessions refuse Neon-only work because no subagent tier reaches Neon', () => {
  for (const model of ['gemini-4-argon-high', 'gemini-4-carbon-xhigh']) {
-  assert.match(getAction('gemini-4-neon-high', routing.roles, 'default', 'single', routing.subagent_tiers, model), /^delegate: invoke_subagent gemini-4-neon-high/);
+  assert.match(getAction('gemini-4-neon-high', routing.roles, 'default', 'single', routing.subagent_tiers, model), /^refuse: needs gemini-4-neon-high; switch the model picker to Gemini 4 Neon/);
   assert.match(getAction('gemini-4-neon-high', routing.roles, 'default', 'single', {}, model), /^refuse:/);
-  assert.match(getAction(routing.roles.security_audit.model, routing.roles, 'security_audit', 'single', routing.subagent_tiers, model), /^delegate: invoke_subagent gemini-4-neon-high/);
+  assert.match(getAction(routing.roles.security_audit.model, routing.roles, 'security_audit', 'single', routing.subagent_tiers, model), /^refuse: needs gemini-4-neon-high; switch the model picker/);
+  // A host tier that really ran Neon would still be used.
+  assert.match(getAction('gemini-4-neon-high', routing.roles, 'default', 'single', { pro: 'gemini-4-neon' }, model), /^delegate: invoke_subagent gemini-4-neon-high/);
  }
 });
 
