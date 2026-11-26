@@ -12,10 +12,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { autoUpdate } = await import(path.join(ROOT, "scripts", "session_start.mjs"));
+// import() needs a file:// URL: a bare Windows path (D:\...) is read as the URL scheme "d:".
+const { autoUpdate } = await import(pathToFileURL(path.join(ROOT, "scripts", "session_start.mjs")).href);
+const { updateCommand } = await import(pathToFileURL(path.join(ROOT, "scripts", "update.mjs")).href);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,6 +69,10 @@ function setupRepo(tmp) {
 	exec(`git -C "${work}" config user.email "test@example.com"`, tmp);
 	exec(`git -C "${work}" config user.name "Test"`, tmp);
 	fs.writeFileSync(path.join(work, "README.md"), "init\n", "utf8");
+	// Pin LF like the real repo's .gitattributes (*.md text eol=lf). Without it, core.autocrlf=true
+	// (set on GitHub Windows runners) checks README.md out as CRLF, and a test that rewrites it as
+	// "init\n" leaves a line-ending-only modification that git status reports as a local change.
+	fs.writeFileSync(path.join(work, ".gitattributes"), "* text=auto eol=lf\n", "utf8");
 	exec(`git -C "${work}" add .`, tmp);
 	exec(`git -C "${work}" commit -m "init"`, tmp);
 	exec(`git -C "${work}" remote add origin "${origin}"`, tmp);
@@ -146,7 +152,8 @@ test("dirty+behind: leaves files untouched and prints notice", () => {
 
 		assert.equal(cap.lines.length, 1, "exactly one line written");
 		assert.match(cap.lines[0], /local changes present, not auto-updated/, "notice includes 'local changes present'");
-		assert.match(cap.lines[0], /bin\/lazyneon.* update/, "notice includes safe update command");
+		// Separator-agnostic: Windows prints C:\...\bin\lazyneon.
+		assert.match(cap.lines[0], /bin[\\/]lazyneon.* update/, "notice includes safe update command");
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -323,7 +330,9 @@ test('notify default: bare upstream produces one line without moving HEAD or tre
   const before=exec('git rev-parse HEAD',clone).toString().trim();
   const newer=exec('git rev-parse HEAD',work).toString().trim();
   const cap=makeCapture(); const line=autoUpdate(clone,{},cap);
-  assert.equal(line,`LazyNeon update available: ${before.slice(0,7)} → ${newer.slice(0,7)} (1 commits). Run: node '${path.join(clone,'bin/lazyneon')}' update`);
+  // The command is quoted for the platform shell: POSIX single quotes, cmd.exe double quotes on Windows.
+  assert.equal(line,`LazyNeon update available: ${before.slice(0,7)} → ${newer.slice(0,7)} (1 commits). Run: ${updateCommand(clone)}`);
+  assert.match(line,process.platform==='win32'?/Run: node "[^"]+lazyneon" update$/:/Run: node '[^']+lazyneon' update$/);
   assert.equal(exec('git rev-parse HEAD',clone).toString().trim(),before);
   assert.equal(exec('git status --porcelain',clone).toString(),'');
   assert.equal(cap.text,'');

@@ -241,14 +241,16 @@ const ARTICLE = `Article 12 sets the fine at 3,000,000 won from 1 March 2026. ${
 /** A fake insane-search install with standing consent under a temporary HOME, and a session with one high-risk claim. */
 async function withConsentEngine(payload, fn) {
 	const home = fs.mkdtempSync(path.join(os.tmpdir(), "is-consent-"));
-	const saved = { home: process.env.HOME, dir: process.env.ULW_INSANE_SEARCH_DIR, py: process.env.ULW_INSANE_SEARCH_PYTHON };
+	const saved = { home: process.env.HOME, profile: process.env.USERPROFILE, dir: process.env.ULW_INSANE_SEARCH_DIR, py: process.env.ULW_INSANE_SEARCH_PYTHON };
 	try {
 		const base = path.join(home, ".local", "share", "insane-search");
 		fs.mkdirSync(path.join(base, "skills", "insane-search", "engine"), { recursive: true });
 		fs.writeFileSync(path.join(base, "STANDING_CONSENT"), "public web research");
 		// A real Python module fixture runs on Windows too; no POSIX executable shim.
 		fs.writeFileSync(path.join(base, "skills", "insane-search", "engine", "__main__.py"), `print(${JSON.stringify(JSON.stringify(payload))})\n`);
+		// os.homedir() reads HOME on POSIX but USERPROFILE on Windows; point both at the fake home.
 		process.env.HOME = home;
+		process.env.USERPROFILE = home;
 		delete process.env.ULW_INSANE_SEARCH_DIR;
 		process.env.ULW_INSANE_SEARCH_PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 		const dir = path.join(home, "session");
@@ -258,6 +260,7 @@ async function withConsentEngine(payload, fn) {
 		await fn(dir);
 	} finally {
 		process.env.HOME = saved.home;
+		if (saved.profile !== undefined) process.env.USERPROFILE = saved.profile; else delete process.env.USERPROFILE;
 		if (saved.dir !== undefined) process.env.ULW_INSANE_SEARCH_DIR = saved.dir;
 		if (saved.py !== undefined) process.env.ULW_INSANE_SEARCH_PYTHON = saved.py; else delete process.env.ULW_INSANE_SEARCH_PYTHON;
 		fs.rmSync(home, { recursive: true, force: true });
