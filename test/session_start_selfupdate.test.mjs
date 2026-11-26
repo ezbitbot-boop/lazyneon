@@ -12,10 +12,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { autoUpdate } = await import(path.join(ROOT, "scripts", "session_start.mjs"));
+// import() needs a file:// URL: a bare Windows path (D:\...) is read as the URL scheme "d:".
+const { autoUpdate } = await import(pathToFileURL(path.join(ROOT, "scripts", "session_start.mjs")).href);
 
 // ---------------------------------------------------------------------------
 // Helpers
