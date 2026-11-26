@@ -17,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // import() needs a file:// URL: a bare Windows path (D:\...) is read as the URL scheme "d:".
 const { autoUpdate } = await import(pathToFileURL(path.join(ROOT, "scripts", "session_start.mjs")).href);
+const { updateCommand } = await import(pathToFileURL(path.join(ROOT, "scripts", "update.mjs")).href);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -324,7 +325,9 @@ test('notify default: bare upstream produces one line without moving HEAD or tre
   const before=exec('git rev-parse HEAD',clone).toString().trim();
   const newer=exec('git rev-parse HEAD',work).toString().trim();
   const cap=makeCapture(); const line=autoUpdate(clone,{},cap);
-  assert.equal(line,`LazyNeon update available: ${before.slice(0,7)} → ${newer.slice(0,7)} (1 commits). Run: node '${path.join(clone,'bin/lazyneon')}' update`);
+  // The command is quoted for the platform shell: POSIX single quotes, cmd.exe double quotes on Windows.
+  assert.equal(line,`LazyNeon update available: ${before.slice(0,7)} → ${newer.slice(0,7)} (1 commits). Run: ${updateCommand(clone)}`);
+  assert.match(line,process.platform==='win32'?/Run: node "[^"]+lazyneon" update$/:/Run: node '[^']+lazyneon' update$/);
   assert.equal(exec('git rev-parse HEAD',clone).toString().trim(),before);
   assert.equal(exec('git status --porcelain',clone).toString(),'');
   assert.equal(cap.text,'');
