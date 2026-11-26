@@ -136,8 +136,10 @@ function deny(reason) {
 }
 
 async function main() {
-	if (process.env.LAZYNEON_DISABLE_WRITE_CHUNK_GUARD === "1") allow();
+	// Read the payload even when disabled: exiting with it unread breaks the host's pipe (EPIPE) once
+	// it outgrows the OS pipe buffer (16 KB on macOS).
 	const raw = process.env.ANTIGRAVITY_TOOL_INPUT || process.env.TOOL_INPUT || (await readStdin(STDIN_WAIT_MS));
+	if (process.env.LAZYNEON_DISABLE_WRITE_CHUNK_GUARD === "1") allow();
 	const payload = tryParseJson(raw);
 	const limits = hostLimits(trustedHost());
  const content = extractWriteContent(payload);
