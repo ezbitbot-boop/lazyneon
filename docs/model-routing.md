@@ -6,6 +6,30 @@
 
 **2026-11-20 소유자 요청으로 Argon을 라우팅에서 제거했다.** [미측정] 통과율 실측 전: 기본·구현은 Neon high → medium, 일반 리뷰·계획·최종 리뷰·보안·PII·포렌식 게이트는 Neon high 기준선이며 실패 검증·인터페이스 변경·상충 근거(reason/evidence)가 있는 경우만 xhigh로 승격한다. 지연·실패 뒤 자동 중복 호출은 하지 않는다. 긴 컨텍스트는 Neon high → Carbon high. Hydrogen high는 장기 실행·병렬 워커 전용이며 게이트에 금지한다. 역사적 측정은 Neon 성능을 뜻하지 않는다.
 
+## Verdict rule v3 (2026-11-27)
+
+`skills/ulw/references/sensitive-check-v3.md` replaces v2 for every role whose `prompt` requires a flag/fail rule (`pii_inject_docfmt`, `security_audit`). v3 is the v2 text plus a four-line decision rule: `fail` also covers requirement violations with no wrong value (baseless absolute guarantees, `verified` without method or result, records outside the declared schema, completion or test claims with no run record) and anything disproved by the files or a recomputed value; `flag` is for anomalies that are neither disproved nor a violation (embedded instructions, personal data, metadata of unknown origin, encoding anomalies); overlapping findings take the highest verdict. v2 stays in the repository as the measured baseline.
+
+Corpus: synthetic labelled dummy corpus (code-generated labels), 120 cases not used while writing the rule, 40 each of `pass`, `fail` and `flag`. Grading is exact match against the label. Invented citations were checked automatically and the remaining hits by hand.
+
+R4, v2 vs v3 on the same 120 cases:
+
+| Model | Bench prompt only | v2 | v3 | fail→flag (v2→v3) | flag→fail (v2→v3) | flag→pass (v2→v3) | Missed fails | Invented citations |
+|---|---|---|---|---|---|---|---|---|
+| Neon | 81/120 | 101/120 | 107/120 | 5→0 | 13→11 | 0→1 | 0 | 0 |
+| Comparison model | 79/120 | 99/120 | 107/120 | 10→0 | 8→11 | 1→1 | 0 | 0 |
+
+How the decision rule was found:
+
+- R2 (same 120 cases, no LazyNeon rule): a general verdict criterion without any trap names raised Neon 81 → 102 and the comparison model 79 → 103, so the earlier gain on a 60-case set was not overfitting. Side effect: some definite disproofs were softened to `flag` (fail→flag 0→6 and 3→10).
+- R3 (comparison model only, same 120): adding "disproved means fail" alone dropped to 100/120; adding "requirement violation is fail" (forbidden absolute claims, schema, completion without evidence) reached 108/120 with fail→flag 0 and missed fails 0. That sentence became the v3 decision rule.
+
+Environment: Neon ran in the Gemini desktop app in Task mode with the default thinking level; the comparison model was gpt-6.2-astra (high) with no network. Neither ran on the Antigravity host, so these numbers are evidence for the rule text, not a measurement of `/ulw` on Antigravity.
+
+Limits: n = 120, all synthetic; the app's thinking level cannot be set, so the Neon arm is not tied to a routing tier; one run per case.
+
+Remaining weak spot: over-severity. `flag` cases judged `fail` are still 11/120 for both models (flag items such as unestablished metadata or disguised `verified` markers read as violations). One `flag` case with decomposed Hangul (NFD) went to `pass` on Neon under v3; v3 already lists encoding and normalization anomalies as `flag`. Per-kind boundary definitions are the next step, not a stronger blanket rule.
+
 ## Argon medium vs high on hard verdicts (carbon-medium-1115, 2026-11-15)
 
 The 41 round-3 cases (picked because other models got them wrong), same runner, prompts and grader as round 3; agy 1.5.9, isolated HOME, 15-minute cap per case. The Argon high arm reuses round 3; a 5-case drift check (seed 1115) reproduced it 5/5.

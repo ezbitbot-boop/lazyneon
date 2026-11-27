@@ -26,7 +26,7 @@ SessionStart의 `플러그인 경로:` 절대경로를 아래 `<플러그인 경
 - `verified_path`: Neon은 `unverified-neon`으로 표시한다. 과거 Argon pro 경로의 검증은 Neon에 승계하지 않는다. 다른 중첩 호출은 `unverified-nested`이다.
 - `routing_note` / `routing_status`: 미측정·출처 안내를 보고에 포함한다. `worker_model`은 병렬 실행/게이트 역할에 따른 제안 모델이다.
 - `session_notice`: `null`이 아니면 한 줄 출력한다. action이 delegate 또는 refuse면 action이 우선하며, notice는 진행 허가가 아니다. `/ulw`는 세션 도중 모델을 바꿀 수 없다.
-- `prompt: "v2"`: sensitive 작업에만 설정된다. **v2 flag/fail 규칙**(`references/sensitive-check-v2.md`, 판정 전에 반드시 읽는다)을 적용해야 한다(`roles.pii_inject_docfmt` 의 `"prompt": "v2 flag/fail rule required"` 참조). 이 필드가 `"v2"`이면 판정 프롬프트를 v2로 교체하지 않고는 진행하지 않는다.
+- `prompt: "v3"`: sensitive 작업과 보안 감사에 설정된다. **v3 flag/fail 규칙**(`references/sensitive-check-v3.md`, 판정 전에 반드시 읽는다)을 적용해야 한다(`roles.pii_inject_docfmt` 의 `"prompt": "v3 flag/fail rule required"` 참조). 이 필드가 `"v3"`이면 판정 프롬프트를 v3로 교체하지 않고는 진행하지 않는다. v2(`references/sensitive-check-v2.md`)는 측정 기준선으로만 남긴다.
 - `reasoning_language`: `en`일 때만 `rules`의 영어 사고·초안 지침을 적용하고 최종 답변은 자연스러운 한국어로 쓴다. `ko`이면 영어 중간 번역 지침을 적용하지 않는다. 법률·포렌식·민감정보·보안 감사·최종 검토·증거 작업이 드러나면 즉시 한국어로 전환한다.
 - `rules`: 이 작업에 걸린 모든 종류의 규칙과 공통 규칙이다. 범위 잠금에 그대로 옮겨 적고, 끝내기 전에 하나씩 지켰는지 확인한다. 키워드는 다른 말로 표현된 작업을 놓칠 수 있으므로, 작업이 포렌식 판정(위변조·편집·원본 여부·삭제 흔적·감정 결론), 숫자 집계(건수·개수·합계·해시·기간), 미디어 판독(OCR·STT·자막·녹취), 반복 변환(형식 변환·이름 일괄 변경)에 해당하는데 그 규칙이 `rules`에 없으면 `model-routing.json`의 `roles.forensic_verdict` / `script_first` / `tool_first` / `mechanical` 의 `rule`을 추가한다.
 - `size: "subagents"`: Tier 1 이상 병렬 경로를 우선 고려한다.

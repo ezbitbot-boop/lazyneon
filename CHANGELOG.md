@@ -1,3 +1,9 @@
+# Unreleased
+
+- ulw: sensitive checks and security audits now use the v3 flag/fail rule (`skills/ulw/references/sensitive-check-v3.md`): v2 plus a decision rule that makes requirement violations `fail` and keeps unproven anomalies `flag`. On 120 unseen synthetic cases exact verdicts rose from 101 to 107 (Neon) and 99 to 107 (comparison model), with 0 missed fails and 0 invented citations; measured outside the Antigravity host (see `docs/model-routing.md`, Verdict rule v3). v2 is kept as the measured baseline.
+- classify-task: the rule version is read from the role's `prompt` field (`verdictRuleVersion`); output is `prompt: "v3"` and `apply v3 flag/fail rule`.
+- Tests: every role prompt that names a rule file must point to an existing file, and the classifier's rule version must match the routing data.
+
 # 0.4.4 — 2026-11-26
 
 - update: the fast-forward no longer overwrites ignored local files (e.g. `config/issuer.json`); it refuses and names them.
