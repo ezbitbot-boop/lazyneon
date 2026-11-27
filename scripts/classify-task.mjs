@@ -164,7 +164,7 @@ export const SWITCH_TO_NEON = "switch the model picker to Gemini 4 Neon (모델 
 export function getAction(model, roles, roleName, mode, subagentTiers = {}, sessionModel = null) {
  const actual = sessionModel ?? "unknown";
  const required = roles[roleName]?.model ?? model;
- const suffix = usesV2(roles, roleName) ? ", apply v2 flag/fail rule" : "";
+ const suffix = ruleSuffix(roles, roleName);
  // Unknown host reports never block ordinary work; never call scheduling a PASS.
  if (actual === 'unknown' || modelFamily(actual) === 'gemini-4-neon') {
   if (mode === 'subagents' && !isGate(roles, roleName) && roleName !== 'long_context') {
@@ -181,7 +181,7 @@ export function getAction(model, roles, roleName, mode, subagentTiers = {}, sess
 
 /** Protected work never leaves the session: no subagent fan-out, no `pro` delegation, no Orchestrator. */
 export function sensitiveAction(roles, roleName, sessionModel = null) {
- const suffix = usesV2(roles, roleName) ? ", apply v2 flag/fail rule" : "";
+ const suffix = ruleSuffix(roles, roleName);
  const actual = sessionModel ?? "unknown";
  if (actual !== "unknown" && (modelFamily(actual) !== "gemini-4-neon" || /orchestrator/i.test(actual)))
   return `refuse: sensitive task needs a direct Gemini 4 Neon session (no subagents, no Orchestrator); ${SWITCH_TO_NEON}${suffix}`;
@@ -243,9 +243,18 @@ export async function executeGate(roles, roleName, run, options = {}) {
  return refused();
 }
 
-/** True when the role's routing entry requires the v2 flag/fail rule (data-driven, not by kind name). */
-function usesV2(roles, roleName) {
-	return typeof roles[roleName]?.prompt === "string" && roles[roleName].prompt.startsWith("v2");
+/**
+ * Verdict rule version a role's routing entry requires ("v3", "v2", …), read from the leading `vN` of its
+ * `prompt` field (data-driven, not by kind name); null when the role needs no flag/fail rule.
+ */
+export function verdictRuleVersion(roles, roleName) {
+	const prompt = roles[roleName]?.prompt;
+	return typeof prompt === "string" ? (/^(v\d+)\b/.exec(prompt)?.[1] ?? null) : null;
+}
+
+function ruleSuffix(roles, roleName) {
+	const version = verdictRuleVersion(roles, roleName);
+	return version ? `, apply ${version} flag/fail rule` : "";
 }
 
 /**
@@ -364,11 +373,11 @@ export function classifyTask(prompt, hostPayload = {}) {
   }
 	}
 	const refused = steps.find(step => (isGate(roles, step.role) || step.role === 'worker_verification') && step.action.startsWith('refuse:'));
-	if (refused) action = refused.action + (usesV2(roles, roleName) ? ', apply v2 flag/fail rule' : '');
+	if (refused) action = refused.action + ruleSuffix(roles, roleName);
 	else if (isGate(roles, roleName)) action = steps.find(step => step.role === roleName).action;
 
 	const reason = buildReason(kind, task_kinds, prompt, size);
-	const promptField = usesV2(roles, roleName) ? "v2" : null;
+	const promptField = verdictRuleVersion(roles, roleName);
 
 	// Rules of every matched kind apply (a prompt can be both a count and a forensic verdict), then the common rule.
 	const matchedRules = Object.keys(task_kinds)

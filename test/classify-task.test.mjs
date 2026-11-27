@@ -48,8 +48,8 @@ function assertSchema(result, label) {
 		`${label}: session_notice must be null or string`,
 	);
 	assert.ok(
-		result.prompt === null || result.prompt === "v2",
-		`${label}: prompt must be null or "v2", got "${result.prompt}"`,
+		result.prompt === null || result.prompt === "v3",
+		`${label}: prompt must be null or "v3", got "${result.prompt}"`,
 	);
 	// Protected work never fans out: its size may say subagents while execution stays single.
 	assert.equal(result.mode, result.delegation === "forbidden" ? "single" : result.size, `${label}: mode must equal size unless delegation is forbidden`);
@@ -94,11 +94,11 @@ test("FIX: 'review this pr' → judgment", () => {
 	assert.equal(r.kind, "judgment");
 });
 
-test("FIX: '개인정보 마스킹 구현해줘' → sensitive with v2 (a matched sensitive signal beats a higher implementation score)", () => {
+test("FIX: '개인정보 마스킹 구현해줘' → sensitive with v3 (a matched sensitive signal beats a higher implementation score)", () => {
 	const r = classify("개인정보 마스킹 구현해줘");
 	assertSchema(r, "FIX PII implement");
 	assert.equal(r.kind, "sensitive");
-	assert.equal(r.prompt, "v2");
+	assert.equal(r.prompt, "v3");
 });
 
 // ── Rule kinds: each carries its role rule plus the common rule ──────────
@@ -178,18 +178,18 @@ test("KO judgment: '결과가 올바른지 검증해줘'", () => {
 	assert.equal(r.kind, "judgment");
 });
 
-test("KO security audit: '보안 감사 진행해줘' routes to security_audit with the v2 rule", () => {
+test("KO security audit: '보안 감사 진행해줘' routes to security_audit with the v3 rule", () => {
 	const r = classify("보안 감사 진행해줘");
 	assertSchema(r, "KO audit 1");
 	assert.equal(r.kind, "security_audit");
-	assert.equal(r.prompt, "v2");
+	assert.equal(r.prompt, "v3");
 });
 
 test("KO security audit: 'API 키 노출 같은 취약점 있는지 봐줘'", () => {
 	const r = classify("API 키 노출 같은 취약점 있는지 봐줘");
 	assertSchema(r, "KO audit 2");
 	assert.equal(r.kind, "security_audit");
-	assert.equal(r.prompt, "v2");
+	assert.equal(r.prompt, "v3");
 });
 
 test("KO plan: '이 기능 설계 계획 세워줘' reaches the plan role", () => {
@@ -199,7 +199,7 @@ test("KO plan: '이 기능 설계 계획 세워줘' reaches the plan role", () =
 	assert.equal(r.action, "proceed in session");
 });
 
-test("judgment stays without the v2 rule", () => {
+test("judgment stays without the v3 rule", () => {
 	const r = classify("이 PR 리뷰해줘");
 	assert.equal(r.kind, "judgment");
 	assert.equal(r.prompt, null);
@@ -428,11 +428,11 @@ test("action: single+Neon implementation → 'proceed in session'", () => {
 	assert.equal(r.action, "proceed in session");
 });
 
-test("action: single+sensitive → 'proceed in session, apply v2 flag/fail rule'", () => {
+test("action: single+sensitive → 'proceed in session, apply v3 flag/fail rule'", () => {
 	const r = classify("check for pii in logs");
 	assertSchema(r, "action single sensitive");
 	assert.equal(r.size, "single");
-	assert.equal(r.action, "proceed in session, apply v2 flag/fail rule");
+	assert.equal(r.action, "proceed in session, apply v3 flag/fail rule");
 });
 
 // ── action: subagents = delegate ──────────────────────────────────────────────
@@ -447,7 +447,7 @@ test("action: subagents+Neon → delegate via invoke_subagent", () => {
 	assert.ok(r.action.startsWith('delegate via invoke_subagent Model: "flash"'));
 });
 
-test("action: subagents+sensitive → no fan-out, proceed in session + v2 rule", () => {
+test("action: subagents+sensitive → no fan-out, proceed in session + v3 rule", () => {
 	const r = classify("check for pii across 3 files");
 	assertSchema(r, "action subagents sensitive");
 	assert.equal(r.model, "gemini-4-neon-high");
@@ -457,7 +457,7 @@ test("action: subagents+sensitive → no fan-out, proceed in session + v2 rule",
 	assert.match(r.routing_note, /^\[미측정\] /);
 	assert.equal(r.size, "subagents");
 	assert.ok(r.action.includes('proceed in session'));
-	assert.ok(r.action.includes("apply v2 flag/fail rule"));
+	assert.ok(r.action.includes("apply v3 flag/fail rule"));
 	assert.ok(r.rules.some(rule => rule.includes("Orchestrator") && rule.includes("#1824")));
 	assert.match(r.session_notice, /민감 작업은 Orchestrator가 아닌 Gemini 4 Neon 단독 세션/);
 });
@@ -529,9 +529,9 @@ test("prompt: null for non-sensitive tasks", () => {
 	assert.equal(r.prompt, null);
 });
 
-test("prompt: 'v2' for sensitive tasks", () => {
+test("prompt: 'v3' for sensitive tasks", () => {
 	const r = classify("check for pii in logs");
-	assert.equal(r.prompt, "v2");
+	assert.equal(r.prompt, "v3");
 });
 
 // ── general fallback ──────────────────────────────────────────────────────────
@@ -558,9 +558,32 @@ test("SKILL.md: references classify-task.mjs", () => {
 	assert.ok(text.includes("classify-task.mjs"));
 });
 
-test("SKILL.md: mentions v2 flag/fail rule for sensitive tasks", () => {
+test("SKILL.md: mentions v3 flag/fail rule for sensitive tasks", () => {
 	const text = fs.readFileSync(SKILL_PATH, "utf8");
-	assert.ok(text.includes("v2 flag/fail"));
+	assert.ok(text.includes("v3 flag/fail"));
+	assert.ok(text.includes("references/sensitive-check-v3.md"));
+});
+
+test("model-routing.json: every role prompt that names a rule file points to an existing file", () => {
+	const routing = JSON.parse(fs.readFileSync(ROUTING_PATH, "utf8"));
+	const prompts = Object.entries(routing.roles).filter(([, role]) => typeof role.prompt === "string");
+	assert.ok(prompts.length > 0, "at least one role carries a prompt rule");
+	for (const [name, role] of prompts) {
+		const files = role.prompt.match(/[\w./-]+\.md\b/g) ?? [];
+		for (const file of files) assert.ok(fs.existsSync(path.join(ROOT, file)), `roles.${name}.prompt: ${file} does not exist`);
+	}
+});
+
+test("classifier rule version matches the routing data for every role", async () => {
+	const { verdictRuleVersion } = await import("../scripts/classify-task.mjs");
+	const { roles } = JSON.parse(fs.readFileSync(ROUTING_PATH, "utf8"));
+	for (const [name, role] of Object.entries(roles)) {
+		const expected = typeof role.prompt === "string" ? role.prompt.match(/^(v\d+)\b/)?.[1] ?? null : null;
+		assert.equal(verdictRuleVersion(roles, name), expected, `roles.${name}`);
+		if (expected) assert.ok(role.prompt.includes(`sensitive-check-${expected}.md`), `roles.${name}.prompt must name sensitive-check-${expected}.md`);
+	}
+	assert.equal(verdictRuleVersion(roles, "pii_inject_docfmt"), "v3");
+	assert.equal(verdictRuleVersion(roles, "security_audit"), "v3");
 });
 
 // ── model-routing.json structure ──────────────────────────────────────────────
